@@ -1,11 +1,6 @@
 """
 PARTH BLUEDROP - High-Tech Web POS & ERP System
-Specialized for Chocolate & Cold Drink Wholesale
-Features:
-- Instant Browser Print Window Trigger (Thermal & A4)
-- Live WhatsApp Web API Integration
-- Split-Panel POS Grid with Real-Time Calculations
-- Dynamic UPI QR Code
+Auto-Admin Fix & Multi-Device POS
 """
 
 import streamlit as st
@@ -74,10 +69,11 @@ def init_db():
         recovery_pin_hash TEXT NOT NULL
     )
     """)
-    c.execute("SELECT * FROM users WHERE role='Admin'")
-    if not c.fetchone():
-        c.execute("INSERT INTO users (username, password_hash, role, recovery_pin_hash) VALUES (?, ?, ?, ?)",
-                  ("admin", hash_txt("admin123"), "Admin", hash_txt("1234")))
+    
+    # GUARANTEED ADMIN SYNC: Ensure admin / admin123 is ALWAYS valid
+    c.execute("DELETE FROM users WHERE username='admin'")
+    c.execute("INSERT INTO users (username, password_hash, role, recovery_pin_hash) VALUES (?, ?, ?, ?)",
+              ("admin", hash_txt("admin123"), "Admin", hash_txt("1234")))
     
     c.execute("""
     CREATE TABLE IF NOT EXISTS customers (
@@ -172,14 +168,17 @@ if not st.session_state.authenticated:
         
         with st.form("login_form"):
             st.markdown("#### 🔐 Security Sign In")
-            u = st.text_input("Operator / Admin Username")
+            u = st.text_input("Operator / Admin Username", value="admin")
             p = st.text_input("Password", type="password")
             btn_login = st.form_submit_button("🚀 ACCESS POS TERMINAL", use_container_width=True)
             
             if btn_login:
+                user_clean = u.strip().lower()
+                pass_clean = p.strip()
+                
                 conn = get_db()
                 c = conn.cursor()
-                c.execute("SELECT username, role FROM users WHERE username=? AND password_hash=?", (u.strip(), hash_txt(p.strip())))
+                c.execute("SELECT username, role FROM users WHERE LOWER(username)=? AND password_hash=?", (user_clean, hash_txt(pass_clean)))
                 user = c.fetchone()
                 conn.close()
                 if user:
@@ -188,8 +187,8 @@ if not st.session_state.authenticated:
                     st.session_state.role = user[1]
                     st.rerun()
                 else:
-                    st.error("Invalid Username or Password!")
-        st.caption("Default Admin: **admin** | Pass: **admin123**")
+                    st.error("गलत पासवर्ड! Username: admin और Password: admin123 दर्ज करें।")
+        st.info("💡 Login Credentials: **admin** | Password: **admin123**")
     st.stop()
 
 
@@ -223,7 +222,6 @@ if choice == "🛒 High-Tech POS Billing":
     col_left, col_right = st.columns([1.5, 1.5], gap="medium")
     
     with col_left:
-        # 1. Customer Card
         with st.container():
             st.markdown("<div class='pos-card'>", unsafe_allow_html=True)
             st.markdown("##### 👤 Customer Lookup")
@@ -253,7 +251,6 @@ if choice == "🛒 High-Tech POS Billing":
                 
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # 2. Product Picker Card
         with st.container():
             st.markdown("<div class='pos-card'>", unsafe_allow_html=True)
             st.markdown("##### 📦 Add Product")
@@ -302,7 +299,6 @@ if choice == "🛒 High-Tech POS Billing":
                             st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # 3. Cart Table
         if st.session_state.cart:
             df_c = pd.DataFrame(st.session_state.cart)
             st.dataframe(df_c[['name', 'qty', 'sell', 'total']], use_container_width=True, hide_index=True)
@@ -311,7 +307,6 @@ if choice == "🛒 High-Tech POS Billing":
                 st.rerun()
 
     with col_right:
-        # Payment Card
         st.markdown("<div class='pos-card'>", unsafe_allow_html=True)
         st.markdown("##### 💰 Payment Calculation")
         
@@ -394,7 +389,6 @@ if choice == "🛒 High-Tech POS Billing":
 
         st.markdown("</div>", unsafe_allow_html=True)
         
-        # 4. DIRECT PRINT & RECEIPT PREVIEW (IF SAVED)
         if st.session_state.last_inv:
             inv = st.session_state.last_inv
             upi_amt = inv['paid'] if inv['paid'] > 0 else (inv['subtotal'] + inv['old_udhaar'])
@@ -433,7 +427,6 @@ if choice == "🛒 High-Tech POS Billing":
             </div>
             """
             
-            # Interactive Printable Component
             components.html(f"""
             {receipt_full_html}
             <div style='text-align:center; margin-top:10px;'>
@@ -443,7 +436,6 @@ if choice == "🛒 High-Tech POS Billing":
             </div>
             """, height=560, scrolling=True)
             
-            # WhatsApp Trigger Link
             items_str = "%0A".join([f"• {it['name']} x {it['qty']} = Rs.{it['total']:.2f}" for it in inv['items']])
             msg = f"*⚡ {BIZ_NAME} - INVOICE #{inv['inv_no']}*%0ANamaste *{inv['name']}* ji,%0A{items_str}%0A*Total: Rs.{inv['subtotal']:.2f}*%0APaid: Rs.{inv['paid']:.2f}%0AUdhaar: Rs.{inv['balance']:.2f}"
             wa_url = f"https://api.whatsapp.com/send?phone=91{inv['mob']}&text={msg}"

@@ -1,6 +1,7 @@
 """
 PARTH BLUEDROP - Next-Gen Fintech Wholesale ERP & Web POS
-Full-Featured Digital Platform:
+Includes:
+- Quick Restock & Product Edit Module (Stock Update / Rate Change)
 - Customer 360° Ledger & Multi-Bill Reprint History
 - Stock Inward Logs & Live Profit Margins
 - Dynamic UPI QR & Direct WhatsApp API
@@ -31,19 +32,16 @@ st.markdown("""
     
     * { font-family: 'Plus Jakarta Sans', sans-serif; }
     
-    /* Main Background */
     .stApp {
         background: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #020617 100%);
         color: #f1f5f9;
     }
     
-    /* Sidebar Styling */
     section[data-testid="stSidebar"] {
         background-color: #0b1120 !important;
         border-right: 1px solid #1e293b;
     }
     
-    /* Metrics Card */
     div[data-testid="stMetric"] {
         background: rgba(30, 41, 59, 0.6);
         backdrop-filter: blur(12px);
@@ -58,7 +56,6 @@ st.markdown("""
         transition: all 0.3s ease;
     }
     
-    /* Digital Glass Cards */
     .glass-card {
         background: rgba(15, 23, 42, 0.75);
         backdrop-filter: blur(16px);
@@ -77,7 +74,6 @@ st.markdown("""
         letter-spacing: -0.5px;
     }
     
-    /* Action Badges */
     .badge-profit {
         background: linear-gradient(135deg, #059669 0%, #10b981 100%);
         color: #ffffff;
@@ -97,16 +93,6 @@ st.markdown("""
         font-weight: 700;
         font-size: 13px;
         display: inline-block;
-    }
-
-    /* Print Slip Card */
-    .print-card {
-        background: #ffffff;
-        color: #0f172a;
-        padding: 20px;
-        border-radius: 12px;
-        font-family: 'Courier New', monospace;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -233,8 +219,6 @@ if 'cart' not in st.session_state:
     st.session_state.cart = []
 if 'last_inv' not in st.session_state:
     st.session_state.last_inv = None
-if 'view_cust_history' not in st.session_state:
-    st.session_state.view_cust_history = None
 
 # --- AUTH / LOGIN SCREEN ---
 if not st.session_state.authenticated:
@@ -301,7 +285,7 @@ if st.sidebar.button("🚪 Terminate Session (Logout)", use_container_width=True
 
 
 # ==============================================================================
-# MODULE 1: DIGITAL POS TERMINAL (FAST SPLIT GRID)
+# MODULE 1: DIGITAL POS TERMINAL
 # ==============================================================================
 if choice == "🛒 Digital POS Billing":
     st.markdown("<h2 class='glass-header' style='margin-bottom: 15px;'>🛒 Next-Gen Web POS Terminal</h2>", unsafe_allow_html=True)
@@ -364,7 +348,7 @@ if choice == "🛒 Digital POS Billing":
                 p_info = df_prods[df_prods['id'] == pid].iloc[0]
                 
                 if p_info['stock'] <= 0:
-                    st.error("❌ Out of Stock!")
+                    st.error("❌ Out of Stock! Please update stock in Inventory.")
                 else:
                     in_cart = sum(item['qty'] for item in st.session_state.cart if item['id'] == pid)
                     if in_cart + qty > p_info['stock']:
@@ -430,7 +414,7 @@ if choice == "🛒 Digital POS Billing":
         
         if st.session_state.role == "Admin" and subtotal > 0:
             margin_pct = (total_profit / subtotal * 100) if subtotal > 0 else 0
-            st.markdown(f"<span class='badge-profit'>📈 Net Margin: ₹ {total_profit:,.2f} ({margin_pct:.1f}%)</span>", unsafe_allow_html=True)
+            st.markdown(f"<span class='badge-profit'>📈 Net Margin: ₹ {total_profit:.2f} ({margin_pct:.1f}%)</span>", unsafe_allow_html=True)
             
         st.markdown("<hr style='border-color: #334155; margin: 15px 0;'>", unsafe_allow_html=True)
         
@@ -552,7 +536,7 @@ if choice == "🛒 Digital POS Billing":
 
 
 # ==============================================================================
-# MODULE 2: CUSTOMER 360° & MULTI-BILL LEDGER (पूरी उधारी व बिल हिस्ट्री)
+# MODULE 2: CUSTOMER 360° & MULTI-BILL LEDGER
 # ==============================================================================
 elif choice == "👥 Customer 360° & Udhaar Ledger":
     st.markdown("<h2 class='glass-header'>👥 Customer 360° & Udhaar Ledger</h2>", unsafe_allow_html=True)
@@ -645,46 +629,89 @@ elif choice == "👥 Customer 360° & Udhaar Ledger":
 
 
 # ==============================================================================
-# MODULE 3: INVENTORY CONTROL & MAAL AAYA LOGS (ADMIN ONLY)
+# MODULE 3: INVENTORY CONTROL & RESTOCK MANAGEMENT (NEW RE-STOCK & EDIT FEATURE)
 # ==============================================================================
 elif choice == "📦 Inventory & Stock Control":
-    st.markdown("<h2 class='glass-header'>📦 Inventory Control & Stock Management</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 class='glass-header'>📦 Wholesale Inventory, Re-Stock & Price Control</h2>", unsafe_allow_html=True)
     
     conn = get_db()
     df_prods = pd.read_sql("SELECT id, barcode, name, category, buy_price, sell_price, stock FROM products ORDER BY id DESC", conn)
     df_stock_in = pd.read_sql("SELECT date, product_name, qty_added, buy_price, total_cost FROM stock_logs ORDER BY id DESC LIMIT 50", conn)
     conn.close()
     
-    t1, t2 = st.tabs(["📦 Current Products Stock", "🚛 Maal Aaya Logs (Inward Stock)"])
+    t1, t2, t3 = st.tabs(["⚡ 1-Click Quick Restock & Edit", "📦 Full Product List", "🚛 Maal Aaya Logs (Inward Stock)"])
     
     with t1:
         st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
-        st.dataframe(
-            df_prods,
-            column_config={
-                "barcode": "Barcode",
-                "name": "Product Name",
-                "category": "Category",
-                "buy_price": st.column_config.NumberColumn("Buy Rate (₹)", format="₹ %.2f"),
-                "sell_price": st.column_config.NumberColumn("Sell Rate (₹)", format="₹ %.2f"),
-                "stock": "Stock Units"
-            },
-            use_container_width=True,
-            hide_index=True
-        )
+        st.markdown("#### ⚡ Quick Stock Refill & Product Editor")
+        st.caption("चुनें और नया स्टॉक जोड़ें (Stock Refill) या रेट बदलें")
+        
+        if not df_prods.empty:
+            prod_dict = {f"#{r['id']} - {r['name']} (Current Stock: {r['stock']} | Buy: ₹{r['buy_price']} | Sell: ₹{r['sell_price']})": r['id'] for _, r in df_prods.iterrows()}
+            selected_item_label = st.selectbox("Select Product to Update", list(prod_dict.keys()))
+            selected_id = prod_dict[selected_item_label]
+            
+            p_data = df_prods[df_prods['id'] == selected_id].iloc[0]
+            
+            col_act1, col_act2 = st.columns(2, gap="large")
+            
+            # Action 1: Quick Add Stock (Refill)
+            with col_act1:
+                st.markdown("##### ➕ Refill / Add New Units")
+                with st.form("quick_refill_form"):
+                    add_qty = st.number_input("Enter New Stock Incoming (Boxes/Pieces)", min_value=1, value=10, step=5)
+                    b_rate = st.number_input("Purchase Rate for this Batch ₹", min_value=0.0, value=float(p_data['buy_price']), step=5.0)
+                    
+                    if st.form_submit_button("🚀 Add Stock & Record Log", type="primary", use_container_width=True):
+                        conn = get_db()
+                        c = conn.cursor()
+                        c.execute("UPDATE products SET stock = stock + ?, buy_price = ? WHERE id = ?", (add_qty, b_rate, selected_id))
+                        c.execute("INSERT INTO stock_logs (date, product_name, qty_added, buy_price, total_cost) VALUES (?, ?, ?, ?, ?)",
+                                  (datetime.now().strftime("%Y-%m-%d"), p_data['name'], add_qty, b_rate, add_qty * b_rate))
+                        conn.commit()
+                        conn.close()
+                        st.success(f"✅ {add_qty} units added to '{p_data['name']}'! Total stock is now {p_data['stock'] + add_qty}.")
+                        st.rerun()
+
+            # Action 2: Complete Edit (Name, Prices, Total Stock)
+            with col_act2:
+                st.markdown("##### ✏️ Edit Product Details & Prices")
+                with st.form("edit_details_form"):
+                    e_name = st.text_input("Product Name", value=p_data['name'])
+                    e_bcode = st.text_input("Barcode", value=str(p_data['barcode'] or ""))
+                    e_cat = st.selectbox("Category", ["Chocolate Wholesale", "Cold Drink Wholesale", "Juice & Beverages", "Snacks"], index=["Chocolate Wholesale", "Cold Drink Wholesale", "Juice & Beverages", "Snacks"].index(p_data['category']) if p_data['category'] in ["Chocolate Wholesale", "Cold Drink Wholesale", "Juice & Beverages", "Snacks"] else 0)
+                    
+                    e_col_a, e_col_b = st.columns(2)
+                    e_buy = e_col_a.number_input("Buy Price ₹", min_value=0.0, value=float(p_data['buy_price']), step=5.0)
+                    e_sell = e_col_b.number_input("Sell Price ₹", min_value=0.0, value=float(p_data['sell_price']), step=5.0)
+                    e_exact_stock = st.number_input("Force Set Exact Stock", min_value=0, value=int(p_data['stock']), step=1)
+                    
+                    if st.form_submit_button("💾 Save Product Changes", use_container_width=True):
+                        conn = get_db()
+                        c = conn.cursor()
+                        c.execute("UPDATE products SET name=?, barcode=?, category=?, buy_price=?, sell_price=?, stock=? WHERE id=?",
+                                  (e_name, e_bcode, e_cat, e_buy, e_sell, e_exact_stock, selected_id))
+                        conn.commit()
+                        conn.close()
+                        st.success(f"Product #{selected_id} updated successfully!")
+                        st.rerun()
+        else:
+            st.info("No products found. Please add a product below.")
+            
         st.markdown("</div>", unsafe_allow_html=True)
         
-        with st.expander("➕ Add New Wholesale Product / Inward Stock"):
-            with st.form("add_prod_form"):
-                c1, c2 = st.columns(2)
-                bcode = c1.text_input("Barcode / Code")
-                pname = c1.text_input("Product Name")
-                pcat = c1.selectbox("Category", ["Chocolate Wholesale", "Cold Drink Wholesale", "Juice & Beverages", "Snacks"])
-                bprice = c2.number_input("Wholesale Buy Price ₹", min_value=0.0, step=5.0)
-                sprice = c2.number_input("Retailer Sell Price ₹", min_value=0.0, step=5.0)
-                pstock = c2.number_input("Stock Units (Boxes/Pieces)", min_value=0, step=10)
+        # Add Brand New Product Accordion
+        with st.expander("➕ Register Brand New Product"):
+            with st.form("add_new_prod_form"):
+                n_c1, n_c2 = st.columns(2)
+                bcode = n_c1.text_input("Barcode / Item Code")
+                pname = n_c1.text_input("Product Name")
+                pcat = n_c1.selectbox("Category", ["Chocolate Wholesale", "Cold Drink Wholesale", "Juice & Beverages", "Snacks"])
+                bprice = n_c2.number_input("Wholesale Buy Price ₹", min_value=0.0, step=5.0)
+                sprice = n_c2.number_input("Retailer Sell Price ₹", min_value=0.0, step=5.0)
+                pstock = n_c2.number_input("Initial Stock Units", min_value=0, step=10)
                 
-                if st.form_submit_button("Save to Inventory", use_container_width=True, type="primary"):
+                if st.form_submit_button("Save New Product", use_container_width=True, type="primary"):
                     if pname:
                         conn = get_db()
                         c = conn.cursor()
@@ -699,7 +726,25 @@ elif choice == "📦 Inventory & Stock Control":
 
     with t2:
         st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
-        st.markdown("##### 🚛 Purchase & Maal Aaya Logs")
+        st.markdown("##### 📦 Live Products & Stock Level Directory")
+        st.dataframe(
+            df_prods,
+            column_config={
+                "barcode": "Barcode",
+                "name": "Product Name",
+                "category": "Category",
+                "buy_price": st.column_config.NumberColumn("Buy Rate (₹)", format="₹ %.2f"),
+                "sell_price": st.column_config.NumberColumn("Sell Rate (₹)", format="₹ %.2f"),
+                "stock": st.column_config.NumberColumn("Available Stock", format="%d units")
+            },
+            use_container_width=True,
+            hide_index=True
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with t3:
+        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+        st.markdown("##### 🚛 Purchase & Maal Aaya Inward History")
         st.dataframe(
             df_stock_in,
             column_config={
@@ -707,7 +752,7 @@ elif choice == "📦 Inventory & Stock Control":
                 "product_name": "Product Name",
                 "qty_added": "Qty Added",
                 "buy_price": st.column_config.NumberColumn("Buy Rate (₹)", format="₹ %.2f"),
-                "total_cost": st.column_config.NumberColumn("Total Cost (₹)", format="₹ %.2f")
+                "total_cost": st.column_config.NumberColumn("Total Inward Cost (₹)", format="₹ %.2f")
             },
             use_container_width=True,
             hide_index=True
@@ -716,7 +761,7 @@ elif choice == "📦 Inventory & Stock Control":
 
 
 # ==============================================================================
-# MODULE 4: NET PROFIT & ANALYTICS DASHBOARD (ADMIN ONLY)
+# MODULE 4: NET PROFIT & ANALYTICS DASHBOARD
 # ==============================================================================
 elif choice == "📊 Sales & Net Profit Dashboard":
     st.markdown("<h2 class='glass-header'>📊 Financial Analytics & Net Profit Engine</h2>", unsafe_allow_html=True)

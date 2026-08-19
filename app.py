@@ -1,6 +1,6 @@
 """
 PARTH BLUEDROP - Next-Gen Fintech Wholesale ERP & Web POS
-Powered by Supabase PostgreSQL Cloud Database (100% Live Sync & Never-Lost Data)
+Fixed: Supabase Transaction Pooler Connection (Port 6543 + SSL Required)
 """
 
 import streamlit as st
@@ -93,8 +93,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Configuration & PostgreSQL Database ---
-DB_URL = "postgresql://postgres:Rohit%4062992@db.bawmdovylsaagnfufjiy.supabase.co:5432/postgres"
-DEFAULT_UPI_ID = "Q000510296@ybl"
+DB_URL = "postgresql+psycopg2://postgres.bawmdovylsaagnfufjiy:Rohit%4062992@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require"
+DEFAULT_UPI_ID = "9752162992@ibl"
 BIZ_NAME = "PARTH BLUEDROP"
 BIZ_TAGLINE = "Wholesale Distributor - Chocolates & Cold Drinks"
 BIZ_PHONE = "9752162992"
@@ -120,7 +120,6 @@ def init_db():
         );
         """))
         
-        # Ensure default Admin account
         conn.execute(text("""
         INSERT INTO users (username, password_hash, role, recovery_pin_hash)
         VALUES (:u, :p, :r, :pin)

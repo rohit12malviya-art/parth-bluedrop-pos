@@ -1,6 +1,6 @@
 """
 PARTH BLUEDROP - Next-Gen Fintech Wholesale ERP & Web POS
-Fixed: Supabase Transaction Pooler Connection (Port 6543 + SSL Required)
+Supabase Session Pooler Engine (Port 5432 + Fail-Safe Cloud DB)
 """
 
 import streamlit as st
@@ -93,7 +93,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Configuration & PostgreSQL Database ---
-DB_URL = "postgresql+psycopg2://postgres.bawmdovylsaagnfufjiy:Rohit%4062992@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require"
+DB_URL = "postgresql+psycopg2://postgres.bawmdovylsaagnfufjiy:Rohit%4062992@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require"
 DEFAULT_UPI_ID = "9752162992@ibl"
 BIZ_NAME = "PARTH BLUEDROP"
 BIZ_TAGLINE = "Wholesale Distributor - Chocolates & Cold Drinks"
@@ -102,7 +102,13 @@ BIZ_ADDRESS = "Purana Thana Road, Near SBI Bank, Gandhwani, Dist - Dhar (M.P.) 4
 
 @st.cache_resource
 def get_engine():
-    return create_engine(DB_URL, pool_pre_ping=True, pool_recycle=300)
+    return create_engine(
+        DB_URL,
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=10,
+        connect_args={"connect_timeout": 15}
+    )
 
 def hash_txt(val):
     return hashlib.sha256(val.encode()).hexdigest()

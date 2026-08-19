@@ -94,7 +94,7 @@ st.markdown("""
 
 # --- Configuration & Database ---
 DB_NAME = "parth_bluedrop.db"
-DEFAULT_UPI_ID = "9752162992@ybl"
+DEFAULT_UPI_ID = "Q000510296@ybl"
 BIZ_NAME = "PARTH BLUEDROP"
 BIZ_TAGLINE = "Wholesale Distributor - Chocolates & Cold Drinks"
 BIZ_PHONE = "9752162992"

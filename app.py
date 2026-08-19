@@ -1,16 +1,16 @@
 """
 PARTH BLUEDROP - Next-Gen Fintech Wholesale ERP & Web POS
-Bugfix: Nullable Barcode & Duplicate Integrity Handlers
+Powered by Supabase PostgreSQL Cloud Database (100% Live Sync & Never-Lost Data)
 """
 
 import streamlit as st
-import sqlite3
 import pandas as pd
 import hashlib
 import urllib.parse
 from datetime import datetime
 import os
 import streamlit.components.v1 as components
+from sqlalchemy import create_engine, text
 
 # --- Page Config ---
 st.set_page_config(
@@ -92,118 +92,113 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Configuration & Database ---
-DB_NAME = "parth_bluedrop.db"
+# --- Configuration & PostgreSQL Database ---
+DB_URL = "postgresql://postgres:Rohit%4062992@db.bawmdovylsaagnfufjiy.supabase.co:5432/postgres"
 DEFAULT_UPI_ID = "Q000510296@ybl"
 BIZ_NAME = "PARTH BLUEDROP"
 BIZ_TAGLINE = "Wholesale Distributor - Chocolates & Cold Drinks"
 BIZ_PHONE = "9752162992"
 BIZ_ADDRESS = "Purana Thana Road, Near SBI Bank, Gandhwani, Dist - Dhar (M.P.) 454446"
 
+@st.cache_resource
+def get_engine():
+    return create_engine(DB_URL, pool_pre_ping=True, pool_recycle=300)
+
 def hash_txt(val):
     return hashlib.sha256(val.encode()).hexdigest()
 
-def get_db():
-    return sqlite3.connect(DB_NAME, timeout=20.0, check_same_thread=False)
-
 def init_db():
-    with get_db() as conn:
-        c = conn.cursor()
-        
-        c.execute("""
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(text("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             role TEXT NOT NULL,
             recovery_pin_hash TEXT NOT NULL
-        )
-        """)
+        );
+        """))
         
-        c.execute("""
+        # Ensure default Admin account
+        conn.execute(text("""
         INSERT INTO users (username, password_hash, role, recovery_pin_hash)
-        VALUES (?, ?, ?, ?)
+        VALUES (:u, :p, :r, :pin)
         ON CONFLICT(username) DO UPDATE SET
-            password_hash=excluded.password_hash,
-            role=excluded.role,
-            recovery_pin_hash=excluded.recovery_pin_hash
-        """, ("admin", hash_txt("admin123"), "Admin", hash_txt("1234")))
+            password_hash=EXCLUDED.password_hash,
+            role=EXCLUDED.role,
+            recovery_pin_hash=EXCLUDED.recovery_pin_hash;
+        """), {"u": "admin", "p": hash_txt("admin123"), "r": "Admin", "pin": hash_txt("1234")})
         
-        c.execute("""
+        conn.execute(text("""
         CREATE TABLE IF NOT EXISTS customers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             mobile TEXT UNIQUE NOT NULL,
             name TEXT NOT NULL,
             village TEXT,
-            outstanding_balance REAL DEFAULT 0.0,
+            outstanding_balance DOUBLE PRECISION DEFAULT 0.0,
             last_purchase_date TEXT,
-            last_purchase_amount REAL DEFAULT 0.0
-        )
-        """)
+            last_purchase_amount DOUBLE PRECISION DEFAULT 0.0
+        );
+        """))
         
-        c.execute("""
+        conn.execute(text("""
         CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             barcode TEXT,
             name TEXT NOT NULL,
             category TEXT,
-            buy_price REAL NOT NULL,
-            sell_price REAL NOT NULL,
+            buy_price DOUBLE PRECISION NOT NULL,
+            sell_price DOUBLE PRECISION NOT NULL,
             stock INTEGER NOT NULL,
             image_path TEXT,
             unit TEXT DEFAULT 'Box/Piece'
-        )
-        """)
+        );
+        """))
         
-        c.execute("""
+        conn.execute(text("""
         CREATE TABLE IF NOT EXISTS invoices (
-            invoice_no INTEGER PRIMARY KEY AUTOINCREMENT,
+            invoice_no SERIAL PRIMARY KEY,
             date_time TEXT NOT NULL,
             date TEXT NOT NULL,
             customer_mobile TEXT,
             customer_name TEXT,
             customer_village TEXT,
-            subtotal REAL NOT NULL,
-            discount REAL DEFAULT 0.0,
-            total_amount REAL NOT NULL,
-            paid_amount REAL NOT NULL,
-            udhaar_amount REAL NOT NULL,
-            total_profit REAL NOT NULL,
+            subtotal DOUBLE PRECISION NOT NULL,
+            discount DOUBLE PRECISION DEFAULT 0.0,
+            total_amount DOUBLE PRECISION NOT NULL,
+            paid_amount DOUBLE PRECISION NOT NULL,
+            udhaar_amount DOUBLE PRECISION NOT NULL,
+            total_profit DOUBLE PRECISION NOT NULL,
             payment_mode TEXT DEFAULT 'Cash',
             billed_by TEXT DEFAULT 'admin'
-        )
-        """)
+        );
+        """))
         
-        c.execute("PRAGMA table_info(invoices)")
-        columns = [col[1] for col in c.fetchall()]
-        if 'billed_by' not in columns:
-            c.execute("ALTER TABLE invoices ADD COLUMN billed_by TEXT DEFAULT 'admin'")
-            
-        c.execute("""
+        conn.execute(text("""
         CREATE TABLE IF NOT EXISTS invoice_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             invoice_no INTEGER,
             product_id INTEGER,
             product_name TEXT,
             qty INTEGER,
-            buy_price REAL,
-            sell_price REAL,
-            total REAL,
-            profit REAL
-        )
-        """)
+            buy_price DOUBLE PRECISION,
+            sell_price DOUBLE PRECISION,
+            total DOUBLE PRECISION,
+            profit DOUBLE PRECISION
+        );
+        """))
         
-        c.execute("""
+        conn.execute(text("""
         CREATE TABLE IF NOT EXISTS stock_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             date TEXT NOT NULL,
             product_name TEXT,
             qty_added INTEGER,
-            buy_price REAL,
-            total_cost REAL
-        )
-        """)
-        conn.commit()
+            buy_price DOUBLE PRECISION,
+            total_cost DOUBLE PRECISION
+        );
+        """))
 
 init_db()
 
@@ -225,7 +220,7 @@ if not st.session_state.authenticated:
         st.markdown(f"""
         <div style='text-align: center; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(20px); padding: 30px; border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.2); box-shadow: 0 20px 50px rgba(0,0,0,0.6);'>
             <h1 class='glass-header' style='font-size: 30px; margin: 0;'>⚡ {BIZ_NAME}</h1>
-            <p style='color: #94a3b8; font-size: 13px; margin-top: 4px;'>Next-Gen Wholesale POS & Cloud Ledger</p>
+            <p style='color: #94a3b8; font-size: 13px; margin-top: 4px;'>Cloud-Synced Wholesale POS & ERP</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -238,14 +233,14 @@ if not st.session_state.authenticated:
             if btn_login:
                 user_clean = u.strip().lower()
                 pass_clean = p.strip()
-                with get_db() as conn:
-                    c = conn.cursor()
-                    c.execute("SELECT username, role FROM users WHERE LOWER(username)=? AND password_hash=?", (user_clean, hash_txt(pass_clean)))
-                    user = c.fetchone()
-                if user:
+                engine = get_engine()
+                with engine.connect() as conn:
+                    result = conn.execute(text("SELECT username, role FROM users WHERE LOWER(username)=:u AND password_hash=:p"),
+                                          {"u": user_clean, "p": hash_txt(pass_clean)}).fetchone()
+                if result:
                     st.session_state.authenticated = True
-                    st.session_state.username = user[0]
-                    st.session_state.role = user[1]
+                    st.session_state.username = result[0]
+                    st.session_state.role = result[1]
                     st.rerun()
                 else:
                     st.error("Invalid Username or Password!")
@@ -262,6 +257,7 @@ st.sidebar.markdown(f"""
     <p style='color: #94a3b8; font-size: 11px; margin: 4px 0 0 0;'>{BIZ_TAGLINE}</p>
     <div style='margin-top: 10px; padding-top: 8px; border-top: 1px solid #334155; font-size: 12px; color: #cbd5e1;'>
         👤 <b>{st.session_state.username}</b> <span style='background: #0284c7; color: white; padding: 2px 6px; border-radius: 8px; font-size: 10px; margin-left: 4px;'>{st.session_state.role}</span>
+        <div style='color: #4ade80; font-size: 11px; margin-top: 4px;'>🟢 Supabase Cloud Live</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -299,10 +295,9 @@ if choice == "🛒 Digital POS Billing":
         old_udhaar = 0.0
         
         if len(mob) == 10:
-            with get_db() as conn:
-                c = conn.cursor()
-                c.execute("SELECT name, village, outstanding_balance, last_purchase_date, last_purchase_amount FROM customers WHERE mobile=?", (mob,))
-                row = c.fetchone()
+            engine = get_engine()
+            with engine.connect() as conn:
+                row = conn.execute(text("SELECT name, village, outstanding_balance, last_purchase_date, last_purchase_amount FROM customers WHERE mobile=:m"), {"m": mob}).fetchone()
             if row:
                 c_name, c_village, old_udhaar = row[0], row[1] or "", max(0.0, float(row[2]))
                 c_col2.text_input("Customer Name", value=c_name, disabled=True)
@@ -325,8 +320,8 @@ if choice == "🛒 Digital POS Billing":
         st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
         st.markdown("<h4 style='color: #38bdf8; margin: 0 0 12px 0;'>📦 Add Wholesale Items</h4>", unsafe_allow_html=True)
         
-        with get_db() as conn:
-            df_prods = pd.read_sql("SELECT id, barcode, name, buy_price, sell_price, stock FROM products ORDER BY name", conn)
+        engine = get_engine()
+        df_prods = pd.read_sql("SELECT id, barcode, name, buy_price, sell_price, stock FROM products ORDER BY name", engine)
         
         p_c1, p_c2, p_c3 = st.columns([2.2, 1, 1])
         prod_map = {f"{r['name']} (₹{r['sell_price']} | Stock: {r['stock']})": r['id'] for _, r in df_prods.iterrows()}
@@ -424,32 +419,39 @@ if choice == "🛒 Digital POS Billing":
             else:
                 now = datetime.now()
                 d_str, dt_str = now.strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d %I:%M %p")
-                with get_db() as conn:
-                    c = conn.cursor()
-                    c.execute("""
+                engine = get_engine()
+                with engine.begin() as conn:
+                    res = conn.execute(text("""
                     INSERT INTO invoices (date_time, date, customer_mobile, customer_name, customer_village, subtotal, total_amount, paid_amount, udhaar_amount, total_profit, payment_mode, billed_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (dt_str, d_str, mob, c_name or "Customer", c_village, subtotal, subtotal, paid, remaining_balance, total_profit, "UPI/Cash", st.session_state.username))
-                    inv_no = c.lastrowid
+                    VALUES (:dt, :d, :mob, :name, :vil, :sub, :tot, :paid, :udh, :prof, :pmode, :bby)
+                    RETURNING invoice_no;
+                    """), {
+                        "dt": dt_str, "d": d_str, "mob": mob, "name": c_name or "Customer", "vil": c_village,
+                        "sub": subtotal, "tot": subtotal, "paid": paid, "udh": remaining_balance, "prof": total_profit,
+                        "pmode": "UPI/Cash", "bby": st.session_state.username
+                    })
+                    inv_no = res.fetchone()[0]
                     
                     for it in st.session_state.cart:
-                        c.execute("""
+                        conn.execute(text("""
                         INSERT INTO invoice_items (invoice_no, product_id, product_name, qty, buy_price, sell_price, total, profit)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (inv_no, it['id'], it['name'], it['qty'], it['buy'], it['sell'], it['total'], it['profit']))
-                        c.execute("UPDATE products SET stock = stock - ? WHERE id=?", (it['qty'], it['id']))
+                        VALUES (:inv, :pid, :pname, :qty, :buy, :sell, :tot, :prof);
+                        """), {
+                            "inv": inv_no, "pid": it['id'], "pname": it['name'], "qty": it['qty'],
+                            "buy": it['buy'], "sell": it['sell'], "tot": it['total'], "prof": it['profit']
+                        })
+                        conn.execute(text("UPDATE products SET stock = stock - :qty WHERE id=:pid"), {"qty": it['qty'], "pid": it['id']})
                         
-                    c.execute("""
+                    conn.execute(text("""
                     INSERT INTO customers (mobile, name, village, outstanding_balance, last_purchase_date, last_purchase_amount)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    VALUES (:m, :n, :v, :bal, :lpd, :lpa)
                     ON CONFLICT(mobile) DO UPDATE SET
-                        name=excluded.name,
-                        village=excluded.village,
-                        outstanding_balance=excluded.outstanding_balance,
-                        last_purchase_date=excluded.last_purchase_date,
-                        last_purchase_amount=excluded.last_purchase_amount
-                    """, (mob, c_name or "Customer", c_village, remaining_balance, d_str, subtotal))
-                    conn.commit()
+                        name=EXCLUDED.name,
+                        village=EXCLUDED.village,
+                        outstanding_balance=EXCLUDED.outstanding_balance,
+                        last_purchase_date=EXCLUDED.last_purchase_date,
+                        last_purchase_amount=EXCLUDED.last_purchase_amount;
+                    """), {"m": mob, "n": c_name or "Customer", "v": c_village, "bal": remaining_balance, "lpd": d_str, "lpa": subtotal})
                 
                 st.session_state.last_inv = {
                     'inv_no': inv_no,
@@ -527,8 +529,8 @@ if choice == "🛒 Digital POS Billing":
 elif choice == "👥 Customer 360° & Udhaar Ledger":
     st.markdown("<h2 class='glass-header'>👥 Customer 360° & Udhaar Ledger</h2>", unsafe_allow_html=True)
     
-    with get_db() as conn:
-        df_cust = pd.read_sql("SELECT id, mobile, name, village, outstanding_balance, last_purchase_date, last_purchase_amount FROM customers ORDER BY outstanding_balance DESC", conn)
+    engine = get_engine()
+    df_cust = pd.read_sql("SELECT id, mobile, name, village, outstanding_balance, last_purchase_date, last_purchase_amount FROM customers ORDER BY outstanding_balance DESC", engine)
     
     col_l1, col_l2 = st.columns([1.6, 1.4], gap="large")
     
@@ -559,10 +561,10 @@ elif choice == "👥 Customer 360° & Udhaar Ledger":
             
             if st.form_submit_button("Record Udhaar Deposit", use_container_width=True, type="primary"):
                 if sel_mob != "No Customers":
-                    with get_db() as conn:
-                        c = conn.cursor()
-                        c.execute("UPDATE customers SET outstanding_balance = MAX(0.0, outstanding_balance - ?) WHERE mobile=?", (r_amt, sel_mob))
-                        conn.commit()
+                    engine = get_engine()
+                    with engine.begin() as conn:
+                        conn.execute(text("UPDATE customers SET outstanding_balance = GREATEST(0.0, outstanding_balance - :amt) WHERE mobile=:m"),
+                                     {"amt": r_amt, "m": sel_mob})
                     st.success(f"₹ {r_amt:,.2f} payment recorded for {sel_mob}!")
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
@@ -574,9 +576,9 @@ elif choice == "👥 Customer 360° & Udhaar Ledger":
         target_cust = st.selectbox("Select Customer to View Full Ledger", options=df_cust['mobile'].tolist() if not df_cust.empty else [])
         
         if target_cust:
-            with get_db() as conn:
-                c_info = pd.read_sql(f"SELECT name, village, outstanding_balance FROM customers WHERE mobile='{target_cust}'", conn).iloc[0]
-                df_invoices = pd.read_sql(f"SELECT invoice_no, date_time, total_amount, paid_amount, udhaar_amount, billed_by FROM invoices WHERE customer_mobile='{target_cust}' ORDER BY invoice_no DESC", conn)
+            engine = get_engine()
+            c_info = pd.read_sql(f"SELECT name, village, outstanding_balance FROM customers WHERE mobile='{target_cust}'", engine).iloc[0]
+            df_invoices = pd.read_sql(f"SELECT invoice_no, date_time, total_amount, paid_amount, udhaar_amount, billed_by FROM invoices WHERE customer_mobile='{target_cust}' ORDER BY invoice_no DESC", engine)
             
             st.markdown(f"**Customer:** {c_info['name']} | **Village:** {c_info['village'] or 'N/A'}")
             st.markdown(f"<span class='badge-udhaar'>Total Due: ₹ {c_info['outstanding_balance']:,.2f}</span>", unsafe_allow_html=True)
@@ -598,9 +600,9 @@ elif choice == "👥 Customer 360° & Udhaar Ledger":
             
             sel_inv_no = st.selectbox("Select Invoice to Re-Print / WhatsApp", options=df_invoices['invoice_no'].tolist() if not df_invoices.empty else [])
             if sel_inv_no:
-                with get_db() as conn:
-                    inv_data = pd.read_sql(f"SELECT * FROM invoices WHERE invoice_no={sel_inv_no}", conn).iloc[0]
-                    inv_items = pd.read_sql(f"SELECT product_name, qty, sell_price, total FROM invoice_items WHERE invoice_no={sel_inv_no}", conn)
+                engine = get_engine()
+                inv_data = pd.read_sql(f"SELECT * FROM invoices WHERE invoice_no={sel_inv_no}", engine).iloc[0]
+                inv_items = pd.read_sql(f"SELECT product_name, qty, sell_price, total FROM invoice_items WHERE invoice_no={sel_inv_no}", engine)
                 
                 items_str = "%0A".join([f"• {r['product_name']} x {r['qty']} = Rs.{r['total']:.2f}" for _, r in inv_items.iterrows()])
                 msg = f"*⚡ {BIZ_NAME} - RE-PRINT INVOICE #{inv_data['invoice_no']}*%0ANamaste *{inv_data['customer_name']}* ji,%0A{items_str}%0A*Total: Rs.{inv_data['total_amount']:.2f}*%0APaid: Rs.{inv_data['paid_amount']:.2f}%0AUdhaar: Rs.{inv_data['udhaar_amount']:.2f}"
@@ -616,9 +618,9 @@ elif choice == "👥 Customer 360° & Udhaar Ledger":
 elif choice == "📦 Inventory & Stock Control":
     st.markdown("<h2 class='glass-header'>📦 Wholesale Inventory, Re-Stock & Price Control</h2>", unsafe_allow_html=True)
     
-    with get_db() as conn:
-        df_prods = pd.read_sql("SELECT id, barcode, name, category, buy_price, sell_price, stock FROM products ORDER BY id DESC", conn)
-        df_stock_in = pd.read_sql("SELECT date, product_name, qty_added, buy_price, total_cost FROM stock_logs ORDER BY id DESC LIMIT 50", conn)
+    engine = get_engine()
+    df_prods = pd.read_sql("SELECT id, barcode, name, category, buy_price, sell_price, stock FROM products ORDER BY id DESC", engine)
+    df_stock_in = pd.read_sql("SELECT date, product_name, qty_added, buy_price, total_cost FROM stock_logs ORDER BY id DESC LIMIT 50", engine)
     
     t1, t2, t3 = st.tabs(["⚡ 1-Click Quick Restock & Edit", "📦 Full Product List", "🚛 Maal Aaya Logs (Inward Stock)"])
     
@@ -643,12 +645,12 @@ elif choice == "📦 Inventory & Stock Control":
                     b_rate = st.number_input("Purchase Rate for this Batch ₹", min_value=0.0, value=float(p_data['buy_price']), step=5.0)
                     
                     if st.form_submit_button("🚀 Add Stock & Record Log", type="primary", use_container_width=True):
-                        with get_db() as conn:
-                            c = conn.cursor()
-                            c.execute("UPDATE products SET stock = stock + ?, buy_price = ? WHERE id = ?", (add_qty, b_rate, selected_id))
-                            c.execute("INSERT INTO stock_logs (date, product_name, qty_added, buy_price, total_cost) VALUES (?, ?, ?, ?, ?)",
-                                      (datetime.now().strftime("%Y-%m-%d"), p_data['name'], add_qty, b_rate, add_qty * b_rate))
-                            conn.commit()
+                        engine = get_engine()
+                        with engine.begin() as conn:
+                            conn.execute(text("UPDATE products SET stock = stock + :qty, buy_price = :rate WHERE id = :pid"),
+                                         {"qty": add_qty, "rate": b_rate, "pid": selected_id})
+                            conn.execute(text("INSERT INTO stock_logs (date, product_name, qty_added, buy_price, total_cost) VALUES (:d, :pname, :qty, :rate, :cost)"),
+                                         {"d": datetime.now().strftime("%Y-%m-%d"), "pname": p_data['name'], "qty": add_qty, "rate": b_rate, "cost": add_qty * b_rate})
                         st.success(f"✅ {add_qty} units added to '{p_data['name']}'! Total stock is now {p_data['stock'] + add_qty}.")
                         st.rerun()
 
@@ -666,11 +668,10 @@ elif choice == "📦 Inventory & Stock Control":
                     
                     if st.form_submit_button("💾 Save Product Changes", use_container_width=True):
                         clean_bcode = e_bcode.strip() if e_bcode.strip() else None
-                        with get_db() as conn:
-                            c = conn.cursor()
-                            c.execute("UPDATE products SET name=?, barcode=?, category=?, buy_price=?, sell_price=?, stock=? WHERE id=?",
-                                      (e_name, clean_bcode, e_cat, e_buy, e_sell, e_exact_stock, selected_id))
-                            conn.commit()
+                        engine = get_engine()
+                        with engine.begin() as conn:
+                            conn.execute(text("UPDATE products SET name=:n, barcode=:b, category=:c, buy_price=:buy, sell_price=:sell, stock=:stk WHERE id=:pid"),
+                                         {"n": e_name, "b": clean_bcode, "c": e_cat, "buy": e_buy, "sell": e_sell, "stk": e_exact_stock, "pid": selected_id})
                         st.success(f"Product #{selected_id} updated successfully!")
                         st.rerun()
         else:
@@ -691,18 +692,14 @@ elif choice == "📦 Inventory & Stock Control":
                 if st.form_submit_button("Save New Product", use_container_width=True, type="primary"):
                     if pname:
                         clean_bcode = bcode.strip() if bcode.strip() else None
-                        with get_db() as conn:
-                            c = conn.cursor()
-                            try:
-                                c.execute("INSERT INTO products (barcode, name, category, buy_price, sell_price, stock) VALUES (?, ?, ?, ?, ?, ?)",
-                                          (clean_bcode, pname, pcat, bprice, sprice, pstock))
-                                c.execute("INSERT INTO stock_logs (date, product_name, qty_added, buy_price, total_cost) VALUES (?, ?, ?, ?, ?)",
-                                          (datetime.now().strftime("%Y-%m-%d"), pname, pstock, bprice, pstock * bprice))
-                                conn.commit()
-                                st.success(f"Added '{pname}' with {pstock} units!")
-                                st.rerun()
-                            except sqlite3.IntegrityError:
-                                st.error("❌ Barcode पहले से किसी और प्रोडक्ट में दर्ज है!")
+                        engine = get_engine()
+                        with engine.begin() as conn:
+                            conn.execute(text("INSERT INTO products (barcode, name, category, buy_price, sell_price, stock) VALUES (:b, :n, :c, :buy, :sell, :stk)"),
+                                         {"b": clean_bcode, "n": pname, "c": pcat, "buy": bprice, "sell": sprice, "stk": pstock})
+                            conn.execute(text("INSERT INTO stock_logs (date, product_name, qty_added, buy_price, total_cost) VALUES (:d, :pname, :qty, :buy, :cost)"),
+                                         {"d": datetime.now().strftime("%Y-%m-%d"), "pname": pname, "qty": pstock, "buy": bprice, "cost": pstock * bprice})
+                        st.success(f"Added '{pname}' with {pstock} units!")
+                        st.rerun()
 
     with t2:
         st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
@@ -749,14 +746,13 @@ elif choice == "📊 Sales & Net Profit Dashboard":
     f_date = st.date_input("Select Analysis Date", value=datetime.now())
     d_str = f_date.strftime("%Y-%m-%d")
     
-    with get_db() as conn:
-        c = conn.cursor()
-        c.execute("SELECT SUM(total_amount), SUM(total_profit) FROM invoices WHERE date=?", (d_str,))
-        res = c.fetchone()
-        sales, profit = res[0] or 0.0, res[1] or 0.0
+    engine = get_engine()
+    with engine.connect() as conn:
+        res = conn.execute(text("SELECT SUM(total_amount), SUM(total_profit) FROM invoices WHERE date=:d"), {"d": d_str}).fetchone()
+        sales, profit = (res[0] or 0.0), (res[1] or 0.0)
         
-        c.execute("SELECT SUM(outstanding_balance) FROM customers WHERE outstanding_balance > 0")
-        mkt_udh = c.fetchone()[0] or 0.0
+        res_udh = conn.execute(text("SELECT SUM(outstanding_balance) FROM customers WHERE outstanding_balance > 0")).fetchone()
+        mkt_udh = res_udh[0] or 0.0
     
     col1, col2, col3 = st.columns(3)
     col1.metric("Daily Sales Volume", f"₹ {sales:,.2f}")
@@ -765,8 +761,7 @@ elif choice == "📊 Sales & Net Profit Dashboard":
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    with get_db() as conn:
-        df_inv = pd.read_sql(f"SELECT invoice_no, date_time, customer_name, customer_mobile, total_amount, paid_amount, udhaar_amount, total_profit, billed_by FROM invoices WHERE date='{d_str}' ORDER BY invoice_no DESC", conn)
+    df_inv = pd.read_sql(f"SELECT invoice_no, date_time, customer_name, customer_mobile, total_amount, paid_amount, udhaar_amount, total_profit, billed_by FROM invoices WHERE date='{d_str}' ORDER BY invoice_no DESC", engine)
     
     st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
     st.markdown(f"#### Invoices Generated on {d_str}")

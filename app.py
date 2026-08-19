@@ -1,6 +1,10 @@
 """
-PARTH BLUEDROP - High-Tech Web POS & ERP System
-Auto-Admin Fix & Multi-Device POS
+PARTH BLUEDROP - Next-Gen Fintech Wholesale ERP & Web POS
+Full-Featured Digital Platform:
+- Customer 360° Ledger & Multi-Bill Reprint History
+- Stock Inward Logs & Live Profit Margins
+- Dynamic UPI QR & Direct WhatsApp API
+- Glassmorphism Cyber-Dark UI
 """
 
 import streamlit as st
@@ -12,43 +16,108 @@ from datetime import datetime
 import os
 import streamlit.components.v1 as components
 
-# --- Page Setup ---
+# --- Page Config ---
 st.set_page_config(
-    page_title="PARTH BLUEDROP - Wholesale Web POS",
+    page_title="PARTH BLUEDROP | Fintech Wholesale Cloud",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Custom High-Tech Styling ---
+# --- Custom Digital Platform CSS ---
 st.markdown("""
 <style>
-    .main { background-color: #0b0f19; color: #f8fafc; }
-    .stMetric { background-color: #1e293b; padding: 12px; border-radius: 8px; border-left: 4px solid #0284c7; }
-    .pos-card {
-        background: #1e293b;
-        padding: 16px;
-        border-radius: 10px;
-        border: 1px solid #334155;
-        margin-bottom: 12px;
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    
+    * { font-family: 'Plus Jakarta Sans', sans-serif; }
+    
+    /* Main Background */
+    .stApp {
+        background: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #020617 100%);
+        color: #f1f5f9;
     }
+    
+    /* Sidebar Styling */
+    section[data-testid="stSidebar"] {
+        background-color: #0b1120 !important;
+        border-right: 1px solid #1e293b;
+    }
+    
+    /* Metrics Card */
+    div[data-testid="stMetric"] {
+        background: rgba(30, 41, 59, 0.6);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(56, 189, 248, 0.15);
+        border-radius: 14px;
+        padding: 16px 20px;
+        box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.3);
+    }
+    div[data-testid="stMetric"]:hover {
+        border-color: #38bdf8;
+        transform: translateY(-2px);
+        transition: all 0.3s ease;
+    }
+    
+    /* Digital Glass Cards */
+    .glass-card {
+        background: rgba(15, 23, 42, 0.75);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(148, 163, 184, 0.12);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 18px;
+        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.4);
+    }
+    
+    .glass-header {
+        background: linear-gradient(90deg, #0284c7 0%, #2563eb 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+    }
+    
+    /* Action Badges */
     .badge-profit {
-        background: #059669;
-        color: white;
-        padding: 4px 10px;
-        border-radius: 20px;
-        font-weight: bold;
-        font-size: 12px;
+        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        color: #ffffff;
+        padding: 6px 14px;
+        border-radius: 30px;
+        font-weight: 700;
+        font-size: 13px;
+        display: inline-block;
+        box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+    }
+    
+    .badge-udhaar {
+        background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+        color: #ffffff;
+        padding: 6px 14px;
+        border-radius: 30px;
+        font-weight: 700;
+        font-size: 13px;
+        display: inline-block;
+    }
+
+    /* Print Slip Card */
+    .print-card {
+        background: #ffffff;
+        color: #0f172a;
+        padding: 20px;
+        border-radius: 12px;
+        font-family: 'Courier New', monospace;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
 </style>
 """, unsafe_allow_html=True)
 
+# --- Configuration & Database ---
 DB_NAME = "parth_bluedrop.db"
 DEFAULT_UPI_ID = "9752162992@ybl"
 BIZ_NAME = "PARTH BLUEDROP"
 BIZ_TAGLINE = "Wholesale Distributor - Chocolates & Cold Drinks"
 BIZ_PHONE = "9752162992"
-BIZ_ADDRESS = "Purana Thana Road, Near SBI Bank, Gandhwani (M.P.) 454446"
+BIZ_ADDRESS = "Purana Thana Road, Near SBI Bank, Gandhwani, Dist - Dhar (M.P.) 454446"
 
 def hash_txt(val):
     return hashlib.sha256(val.encode()).hexdigest()
@@ -70,7 +139,7 @@ def init_db():
     )
     """)
     
-    # GUARANTEED ADMIN SYNC: Ensure admin / admin123 is ALWAYS valid
+    # Auto-ensure default Admin
     c.execute("DELETE FROM users WHERE username='admin'")
     c.execute("INSERT INTO users (username, password_hash, role, recovery_pin_hash) VALUES (?, ?, ?, ?)",
               ("admin", hash_txt("admin123"), "Admin", hash_txt("1234")))
@@ -124,7 +193,7 @@ def init_db():
     columns = [col[1] for col in c.fetchall()]
     if 'billed_by' not in columns:
         c.execute("ALTER TABLE invoices ADD COLUMN billed_by TEXT DEFAULT 'admin'")
-    
+        
     c.execute("""
     CREATE TABLE IF NOT EXISTS invoice_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,6 +205,17 @@ def init_db():
         sell_price REAL,
         total REAL,
         profit REAL
+    )
+    """)
+    
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS stock_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        product_name TEXT,
+        qty_added INTEGER,
+        buy_price REAL,
+        total_cost REAL
     )
     """)
     
@@ -153,29 +233,30 @@ if 'cart' not in st.session_state:
     st.session_state.cart = []
 if 'last_inv' not in st.session_state:
     st.session_state.last_inv = None
+if 'view_cust_history' not in st.session_state:
+    st.session_state.view_cust_history = None
 
-# --- LOGIN SCREEN ---
+# --- AUTH / LOGIN SCREEN ---
 if not st.session_state.authenticated:
     st.markdown("<br><br>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns([1, 1.8, 1])
+    c1, c2, c3 = st.columns([1, 1.5, 1])
     with c2:
         st.markdown(f"""
-        <div style='text-align: center; background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #0284c7;'>
-            <h2 style='color: #38bdf8; margin: 0;'>⚡ {BIZ_NAME}</h2>
-            <p style='color: #94a3b8; font-size: 13px;'>Wholesale ERP & Multi-Terminal POS</p>
+        <div style='text-align: center; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(20px); padding: 30px; border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.2); box-shadow: 0 20px 50px rgba(0,0,0,0.6);'>
+            <h1 class='glass-header' style='font-size: 30px; margin: 0;'>⚡ {BIZ_NAME}</h1>
+            <p style='color: #94a3b8; font-size: 13px; margin-top: 4px;'>Next-Gen Wholesale POS & Cloud Ledger</p>
         </div>
         """, unsafe_allow_html=True)
         
         with st.form("login_form"):
-            st.markdown("#### 🔐 Security Sign In")
-            u = st.text_input("Operator / Admin Username", value="admin")
-            p = st.text_input("Password", type="password")
-            btn_login = st.form_submit_button("🚀 ACCESS POS TERMINAL", use_container_width=True)
+            st.markdown("#### 🔐 Security Authentication")
+            u = st.text_input("Username / Operator ID", value="admin")
+            p = st.text_input("Password", type="password", value="admin123")
+            btn_login = st.form_submit_button("🚀 ENTER PLATFORM TERMINAL", use_container_width=True)
             
             if btn_login:
                 user_clean = u.strip().lower()
                 pass_clean = p.strip()
-                
                 conn = get_db()
                 c = conn.cursor()
                 c.execute("SELECT username, role FROM users WHERE LOWER(username)=? AND password_hash=?", (user_clean, hash_txt(pass_clean)))
@@ -187,156 +268,183 @@ if not st.session_state.authenticated:
                     st.session_state.role = user[1]
                     st.rerun()
                 else:
-                    st.error("गलत पासवर्ड! Username: admin और Password: admin123 दर्ज करें।")
-        st.info("💡 Login Credentials: **admin** | Password: **admin123**")
+                    st.error("Invalid Username or Password!")
+        st.info("💡 Default: **admin** | Pass: **admin123**")
     st.stop()
 
 
-# --- SIDEBAR DASHBOARD ---
+# --- SIDEBAR BRANDING & MENU ---
 st.sidebar.markdown(f"""
-<div style='background: #1e293b; padding: 12px; border-radius: 8px; border-left: 4px solid #38bdf8; margin-bottom: 15px;'>
-    <h3 style='color: #38bdf8; margin: 0;'>⚡ {BIZ_NAME}</h3>
-    <p style='color: #94a3b8; font-size: 11px; margin: 0;'>{BIZ_TAGLINE}</p>
-    <div style='margin-top: 8px; font-size: 12px;'>👤 <b>{st.session_state.username}</b> <span style='color: #38bdf8;'>({st.session_state.role})</span></div>
+<div style='background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.2); margin-bottom: 20px;'>
+    <div style='display: flex; align-items: center; gap: 8px;'>
+        <h3 style='color: #38bdf8; margin: 0; font-size: 18px; font-weight: 800;'>⚡ {BIZ_NAME}</h3>
+    </div>
+    <p style='color: #94a3b8; font-size: 11px; margin: 4px 0 0 0;'>{BIZ_TAGLINE}</p>
+    <div style='margin-top: 10px; padding-top: 8px; border-top: 1px solid #334155; font-size: 12px; color: #cbd5e1;'>
+        👤 <b>{st.session_state.username}</b> <span style='background: #0284c7; color: white; padding: 2px 6px; border-radius: 8px; font-size: 10px; margin-left: 4px;'>{st.session_state.role}</span>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
-menu_options = ["🛒 High-Tech POS Billing", "👥 Customer Ledger & Udhaar"]
+menu_options = ["🛒 Digital POS Billing", "👥 Customer 360° & Udhaar Ledger"]
 if st.session_state.role == "Admin":
     menu_options.extend(["📦 Inventory & Stock Control", "📊 Sales & Net Profit Dashboard"])
 
-choice = st.sidebar.radio("Quick Navigation", menu_options)
+choice = st.sidebar.radio("Platform Modules", menu_options)
 
 st.sidebar.markdown("---")
-if st.sidebar.button("🚪 Logout Session", use_container_width=True):
+if st.sidebar.button("🚪 Terminate Session (Logout)", use_container_width=True):
     st.session_state.authenticated = False
+    st.session_state.cart = []
+    st.session_state.last_inv = None
     st.rerun()
 
 
 # ==============================================================================
-# VIEW 1: HIGH-TECH SPLIT-GRID POS BILLING
+# MODULE 1: DIGITAL POS TERMINAL (FAST SPLIT GRID)
 # ==============================================================================
-if choice == "🛒 High-Tech POS Billing":
-    st.markdown("### 🛒 Terminal POS Billing")
+if choice == "🛒 Digital POS Billing":
+    st.markdown("<h2 class='glass-header' style='margin-bottom: 15px;'>🛒 Next-Gen Web POS Terminal</h2>", unsafe_allow_html=True)
     
-    col_left, col_right = st.columns([1.5, 1.5], gap="medium")
+    col_pos_left, col_pos_right = st.columns([1.55, 1.45], gap="large")
     
-    with col_left:
-        with st.container():
-            st.markdown("<div class='pos-card'>", unsafe_allow_html=True)
-            st.markdown("##### 👤 Customer Lookup")
-            c_m1, c_m2, c_m3 = st.columns([1.5, 1.5, 1.5])
-            
-            mob = c_m1.text_input("Mobile No", max_chars=10, placeholder="10 Digit Mobile")
-            c_name = "Cash Customer"
-            c_village = ""
-            old_udhaar = 0.0
-            
-            if len(mob) == 10:
-                conn = get_db()
-                c = conn.cursor()
-                c.execute("SELECT name, village, outstanding_balance FROM customers WHERE mobile=?", (mob,))
-                row = c.fetchone()
-                conn.close()
-                if row:
-                    c_name, c_village, old_udhaar = row[0], row[1] or "", max(0.0, float(row[2]))
-                    c_m2.text_input("Name", value=c_name, disabled=True)
-                    c_m3.text_input("Village", value=c_village, disabled=True)
-                else:
-                    c_name = c_m2.text_input("Name", value="", placeholder="Enter Name")
-                    c_village = c_m3.text_input("Village", value="", placeholder="Enter Village")
-            else:
-                c_m2.text_input("Name", value=c_name, disabled=True)
-                c_m3.text_input("Village", value="-", disabled=True)
-                
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        with st.container():
-            st.markdown("<div class='pos-card'>", unsafe_allow_html=True)
-            st.markdown("##### 📦 Add Product")
-            
+    with col_pos_left:
+        # 1. Customer Intelligence Card
+        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color: #38bdf8; margin: 0 0 12px 0;'>👤 Customer Details & Lookup</h4>", unsafe_allow_html=True)
+        
+        c_col1, c_col2, c_col3 = st.columns([1.5, 1.5, 1.5])
+        mob = c_col1.text_input("Mobile Number", max_chars=10, placeholder="10 Digit Number")
+        c_name = "Cash Customer"
+        c_village = ""
+        old_udhaar = 0.0
+        
+        if len(mob) == 10:
             conn = get_db()
-            df_prods = pd.read_sql("SELECT id, barcode, name, buy_price, sell_price, stock FROM products ORDER BY name", conn)
+            c = conn.cursor()
+            c.execute("SELECT name, village, outstanding_balance, last_purchase_date, last_purchase_amount FROM customers WHERE mobile=?", (mob,))
+            row = c.fetchone()
             conn.close()
+            if row:
+                c_name, c_village, old_udhaar = row[0], row[1] or "", max(0.0, float(row[2]))
+                c_col2.text_input("Customer Name", value=c_name, disabled=True)
+                c_col3.text_input("Village / Area", value=c_village, disabled=True)
+                
+                if old_udhaar > 0:
+                    st.markdown(f"<span class='badge-udhaar'>🚨 Past Udhaar Due: ₹ {old_udhaar:,.2f}</span> <span style='font-size:12px; color:#94a3b8; margin-left:8px;'>Last Bill: {row[3]} (₹{row[4]:,.2f})</span>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<span style='background: #059669; color: white; padding: 4px 10px; border-radius: 20px; font-weight: bold; font-size: 12px;'>✅ No Past Udhaar</span>", unsafe_allow_html=True)
+            else:
+                c_name = c_col2.text_input("Customer Name", value="", placeholder="Enter Name")
+                c_village = c_col3.text_input("Village / Area", value="", placeholder="Enter Village")
+                st.caption("✨ New Customer Registration Mode")
+        else:
+            c_col2.text_input("Customer Name", value=c_name, disabled=True)
+            c_col3.text_input("Village / Area", value="-", disabled=True)
             
-            p_c1, p_c2, p_c3 = st.columns([2, 1, 1])
-            
-            prod_map = {f"{r['name']} (₹{r['sell_price']} | Stock: {r['stock']})": r['id'] for _, r in df_prods.iterrows()}
-            sel_label = p_c1.selectbox("Select Item", ["-- Select Item --"] + list(prod_map.keys()))
-            qty = p_c2.number_input("Qty", min_value=1, value=1, step=1)
-            
-            p_c3.markdown("<br>", unsafe_allow_html=True)
-            if p_c3.button("➕ Add Item", use_container_width=True, type="primary"):
-                if sel_label != "-- Select Item --":
-                    pid = prod_map[sel_label]
-                    p_info = df_prods[df_prods['id'] == pid].iloc[0]
-                    
-                    if p_info['stock'] <= 0:
-                        st.error("❌ Out of Stock!")
-                    else:
-                        in_cart = sum(item['qty'] for item in st.session_state.cart if item['id'] == pid)
-                        if in_cart + qty > p_info['stock']:
-                            st.error(f"Cannot add! Total available: {p_info['stock']}")
-                        else:
-                            found = False
-                            for item in st.session_state.cart:
-                                if item['id'] == pid:
-                                    item['qty'] += qty
-                                    item['total'] = item['qty'] * item['sell']
-                                    item['profit'] = item['qty'] * (item['sell'] - item['buy'])
-                                    found = True
-                                    break
-                            if not found:
-                                st.session_state.cart.append({
-                                    'id': pid,
-                                    'name': p_info['name'],
-                                    'buy': p_info['buy_price'],
-                                    'sell': p_info['sell_price'],
-                                    'qty': qty,
-                                    'total': qty * p_info['sell_price'],
-                                    'profit': qty * (p_info['sell_price'] - p_info['buy_price'])
-                                })
-                            st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
+        # 2. Product Picker & Fast Cart Card
+        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color: #38bdf8; margin: 0 0 12px 0;'>📦 Add Wholesale Items</h4>", unsafe_allow_html=True)
+        
+        conn = get_db()
+        df_prods = pd.read_sql("SELECT id, barcode, name, buy_price, sell_price, stock FROM products ORDER BY name", conn)
+        conn.close()
+        
+        p_c1, p_c2, p_c3 = st.columns([2.2, 1, 1])
+        prod_map = {f"{r['name']} (₹{r['sell_price']} | Stock: {r['stock']})": r['id'] for _, r in df_prods.iterrows()}
+        sel_label = p_c1.selectbox("Select Product", ["-- Select Item --"] + list(prod_map.keys()))
+        qty = p_c2.number_input("Quantity", min_value=1, value=1, step=1)
+        
+        p_c3.markdown("<br>", unsafe_allow_html=True)
+        if p_c3.button("➕ Add to Cart", use_container_width=True, type="primary"):
+            if sel_label != "-- Select Item --":
+                pid = prod_map[sel_label]
+                p_info = df_prods[df_prods['id'] == pid].iloc[0]
+                
+                if p_info['stock'] <= 0:
+                    st.error("❌ Out of Stock!")
+                else:
+                    in_cart = sum(item['qty'] for item in st.session_state.cart if item['id'] == pid)
+                    if in_cart + qty > p_info['stock']:
+                        st.error(f"Cannot add! Max available: {p_info['stock']}")
+                    else:
+                        found = False
+                        for item in st.session_state.cart:
+                            if item['id'] == pid:
+                                item['qty'] += qty
+                                item['total'] = item['qty'] * item['sell']
+                                item['profit'] = item['qty'] * (item['sell'] - item['buy'])
+                                found = True
+                                break
+                        if not found:
+                            st.session_state.cart.append({
+                                'id': pid,
+                                'name': p_info['name'],
+                                'buy': p_info['buy_price'],
+                                'sell': p_info['sell_price'],
+                                'qty': qty,
+                                'total': qty * p_info['sell_price'],
+                                'profit': qty * (p_info['sell_price'] - p_info['buy_price'])
+                            })
+                        st.rerun()
+                        
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # 3. Interactive Cart Table
         if st.session_state.cart:
+            st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+            st.markdown("##### 🛒 Current Cart Items")
             df_c = pd.DataFrame(st.session_state.cart)
-            st.dataframe(df_c[['name', 'qty', 'sell', 'total']], use_container_width=True, hide_index=True)
-            if st.button("🗑️ Reset Cart", use_container_width=True):
+            st.dataframe(
+                df_c[['name', 'qty', 'sell', 'total']],
+                column_config={
+                    "name": "Product Name",
+                    "qty": "Quantity",
+                    "sell": "Rate (₹)",
+                    "total": "Total (₹)"
+                },
+                use_container_width=True,
+                hide_index=True
+            )
+            if st.button("🗑️ Clear Entire Cart", use_container_width=True):
                 st.session_state.cart = []
                 st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
 
-    with col_right:
-        st.markdown("<div class='pos-card'>", unsafe_allow_html=True)
-        st.markdown("##### 💰 Payment Calculation")
+    with col_pos_right:
+        # 4. Financial Calculation Card
+        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color: #38bdf8; margin: 0 0 12px 0;'>💰 Payment & Bill Breakdown</h4>", unsafe_allow_html=True)
         
         subtotal = sum(it['total'] for it in st.session_state.cart)
         total_profit = sum(it['profit'] for it in st.session_state.cart)
         net_payable = subtotal + old_udhaar
         
-        m_col1, m_col2 = st.columns(2)
-        m_col1.metric("Current Bill", f"₹ {subtotal:.2f}")
-        m_col2.metric("Purana Udhaar", f"₹ {old_udhaar:.2f}", delta=f"-₹ {old_udhaar:.2f}" if old_udhaar > 0 else None, delta_color="inverse")
+        m1, m2 = st.columns(2)
+        m1.metric("Current Bill Total", f"₹ {subtotal:,.2f}")
+        m2.metric("Old Udhaar (बकाया)", f"₹ {old_udhaar:,.2f}", delta=f"-₹ {old_udhaar:,.2f}" if old_udhaar > 0 else None, delta_color="inverse")
         
-        st.markdown(f"<h3 style='color: #38bdf8; margin: 5px 0;'>Total Due: ₹ {net_payable:.2f}</h3>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='color: #38bdf8; margin: 12px 0;'>Net Payable Due: ₹ {net_payable:,.2f}</h3>", unsafe_allow_html=True)
         
         if st.session_state.role == "Admin" and subtotal > 0:
             margin_pct = (total_profit / subtotal * 100) if subtotal > 0 else 0
-            st.markdown(f"<span class='badge-profit'>📈 Net Margin: ₹ {total_profit:.2f} ({margin_pct:.1f}%)</span>", unsafe_allow_html=True)
+            st.markdown(f"<span class='badge-profit'>📈 Net Margin: ₹ {total_profit:,.2f} ({margin_pct:.1f}%)</span>", unsafe_allow_html=True)
+            
+        st.markdown("<hr style='border-color: #334155; margin: 15px 0;'>", unsafe_allow_html=True)
         
-        st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
-        
-        paid = st.number_input("Received Cash / UPI (₹)", min_value=0.0, value=float(subtotal), step=50.0)
+        paid = st.number_input("Received Cash / UPI (जमा राशि ₹)", min_value=0.0, value=float(subtotal), step=50.0)
         remaining_balance = max(0.0, net_payable - paid)
         
         if remaining_balance > 0:
-            st.markdown(f"<p style='color: #f87171; font-weight: bold;'>🚨 New Udhaar: ₹ {remaining_balance:.2f}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color: #f87171; font-weight: bold; font-size: 15px;'>🚨 Remaining Udhaar: ₹ {remaining_balance:,.2f}</p>", unsafe_allow_html=True)
         else:
-            st.markdown("<p style='color: #4ade80; font-weight: bold;'>✅ Full Payment Cleared</p>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #4ade80; font-weight: bold; font-size: 15px;'>✅ Full Payment Received (No Udhaar)</p>", unsafe_allow_html=True)
             
-        if st.button("🚀 SAVE & GENERATE INVOICE", type="primary", use_container_width=True):
+        if st.button("🚀 SAVE & GENERATE INVOICE SLIP", type="primary", use_container_width=True):
             if not st.session_state.cart:
-                st.error("Cart is empty!")
+                st.error("Cart is empty! Please add products.")
             elif not mob or len(mob) != 10:
                 st.error("Please enter a valid 10-digit customer mobile number!")
             else:
@@ -389,6 +497,7 @@ if choice == "🛒 High-Tech POS Billing":
 
         st.markdown("</div>", unsafe_allow_html=True)
         
+        # 5. Live Bill Preview & WhatsApp Action
         if st.session_state.last_inv:
             inv = st.session_state.last_inv
             upi_amt = inv['paid'] if inv['paid'] > 0 else (inv['subtotal'] + inv['old_udhaar'])
@@ -397,7 +506,7 @@ if choice == "🛒 High-Tech POS Billing":
             items_html = "".join([f"<tr><td style='padding:4px; border-bottom:1px dashed #ccc;'>{it['name']}</td><td style='text-align:center; padding:4px; border-bottom:1px dashed #ccc;'>{it['qty']}</td><td style='text-align:right; padding:4px; border-bottom:1px dashed #ccc;'>₹{it['sell']:.2f}</td><td style='text-align:right; padding:4px; border-bottom:1px dashed #ccc; font-weight:bold;'>₹{it['total']:.2f}</td></tr>" for it in inv['items']])
             
             receipt_full_html = f"""
-            <div id='printArea' style='background:#ffffff; color:#0f172a; padding:15px; border:1px solid #ddd; font-family:Arial,sans-serif; max-width:380px; margin:auto; border-radius:6px;'>
+            <div id='printArea' style='background:#ffffff; color:#0f172a; padding:15px; border:1px solid #ddd; font-family:Arial,sans-serif; max-width:380px; margin:auto; border-radius:8px;'>
                 <div style='text-align:center; border-bottom:2px dashed #0284c7; padding-bottom:8px;'>
                     <h3 style='margin:0; color:#0284c7;'>⚡ {BIZ_NAME}</h3>
                     <div style='font-size:11px;'>{BIZ_TAGLINE}</div>
@@ -431,7 +540,7 @@ if choice == "🛒 High-Tech POS Billing":
             {receipt_full_html}
             <div style='text-align:center; margin-top:10px;'>
                 <button onclick="window.print()" style="background:#0284c7; color:white; border:none; padding:10px 20px; font-size:13px; font-weight:bold; border-radius:6px; cursor:pointer; width:100%; max-width:380px;">
-                    🖨️ DIRECT PRINT INVOICE
+                    🖨️ ONE-CLICK PRINT RECEIPT
                 </button>
             </div>
             """, height=560, scrolling=True)
@@ -439,73 +548,178 @@ if choice == "🛒 High-Tech POS Billing":
             items_str = "%0A".join([f"• {it['name']} x {it['qty']} = Rs.{it['total']:.2f}" for it in inv['items']])
             msg = f"*⚡ {BIZ_NAME} - INVOICE #{inv['inv_no']}*%0ANamaste *{inv['name']}* ji,%0A{items_str}%0A*Total: Rs.{inv['subtotal']:.2f}*%0APaid: Rs.{inv['paid']:.2f}%0AUdhaar: Rs.{inv['balance']:.2f}"
             wa_url = f"https://api.whatsapp.com/send?phone=91{inv['mob']}&text={msg}"
-            st.markdown(f"<a href='{wa_url}' target='_blank'><button style='background-color:#22c55e; color:white; width:100%; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer;'>💬 Open Direct WhatsApp Chat</button></a>", unsafe_allow_html=True)
+            st.markdown(f"<a href='{wa_url}' target='_blank'><button style='background-color:#22c55e; color:white; width:100%; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;'>💬 Open Direct WhatsApp Chat</button></a>", unsafe_allow_html=True)
 
 
 # ==============================================================================
-# VIEW 2: CUSTOMERS & UDHAAR
+# MODULE 2: CUSTOMER 360° & MULTI-BILL LEDGER (पूरी उधारी व बिल हिस्ट्री)
 # ==============================================================================
-elif choice == "👥 Customer Ledger & Udhaar":
-    st.markdown("### 👥 Customer Ledger & Udhaar Tracking")
+elif choice == "👥 Customer 360° & Udhaar Ledger":
+    st.markdown("<h2 class='glass-header'>👥 Customer 360° & Udhaar Ledger</h2>", unsafe_allow_html=True)
+    
     conn = get_db()
     df_cust = pd.read_sql("SELECT id, mobile, name, village, outstanding_balance, last_purchase_date, last_purchase_amount FROM customers ORDER BY outstanding_balance DESC", conn)
     conn.close()
     
-    st.dataframe(df_cust, use_container_width=True, hide_index=True)
+    col_l1, col_l2 = st.columns([1.6, 1.4], gap="large")
     
-    st.markdown("#### 💵 Receive Udhaar Payment")
-    with st.form("rec_pay"):
-        c1, c2 = st.columns(2)
-        r_mob = c1.selectbox("Select Customer", df_cust['mobile'].tolist())
-        r_amt = c2.number_input("Amount (₹)", min_value=1.0, step=50.0)
-        if st.form_submit_button("Record Payment", use_container_width=True):
-            conn = get_db()
-            c = conn.cursor()
-            c.execute("UPDATE customers SET outstanding_balance = MAX(0.0, outstanding_balance - ?) WHERE mobile=?", (r_amt, r_mob))
-            conn.commit()
-            conn.close()
-            st.success(f"₹ {r_amt:.2f} recorded!")
-            st.rerun()
+    with col_l1:
+        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+        st.markdown("##### 📋 All Customers Directory")
+        st.dataframe(
+            df_cust,
+            column_config={
+                "mobile": "Mobile No",
+                "name": "Customer Name",
+                "village": "Village",
+                "outstanding_balance": st.column_config.NumberColumn("Udhaar (₹)", format="₹ %.2f"),
+                "last_purchase_date": "Last Date",
+                "last_purchase_amount": st.column_config.NumberColumn("Last Bill (₹)", format="₹ %.2f")
+            },
+            use_container_width=True,
+            hide_index=True
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
 
-
-# ==============================================================================
-# VIEW 3: INVENTORY CONTROL (ADMIN ONLY)
-# ==============================================================================
-elif choice == "📦 Inventory & Stock Control":
-    st.markdown("### 📦 Inventory & Stock Control")
-    conn = get_db()
-    df_prods = pd.read_sql("SELECT id, barcode, name, category, buy_price, sell_price, stock FROM products ORDER BY id DESC", conn)
-    conn.close()
-    
-    st.dataframe(df_prods, use_container_width=True, hide_index=True)
-    
-    with st.expander("➕ Add New Wholesale Product"):
-        with st.form("add_p"):
-            c1, c2 = st.columns(2)
-            bcode = c1.text_input("Barcode")
-            pname = c1.text_input("Product Name")
-            pcat = c1.selectbox("Category", ["Chocolate Wholesale", "Cold Drink Wholesale", "Beverages", "Snacks"])
-            bprice = c2.number_input("Buy Price ₹", min_value=0.0, step=5.0)
-            sprice = c2.number_input("Sell Price ₹", min_value=0.0, step=5.0)
-            pstock = c2.number_input("Stock Qty", min_value=0, step=10)
+        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+        st.markdown("##### 💵 Quick Udhaar Collection Entry")
+        with st.form("rec_pay_form"):
+            r_c1, r_c2 = st.columns(2)
+            sel_mob = r_c1.selectbox("Select Customer Mobile", df_cust['mobile'].tolist() if not df_cust.empty else ["No Customers"])
+            r_amt = r_c2.number_input("Received Amount (₹)", min_value=1.0, step=50.0)
             
-            if st.form_submit_button("Save to Inventory"):
-                if pname:
+            if st.form_submit_button("Record Udhaar Deposit", use_container_width=True, type="primary"):
+                if sel_mob != "No Customers":
                     conn = get_db()
                     c = conn.cursor()
-                    c.execute("INSERT INTO products (barcode, name, category, buy_price, sell_price, stock) VALUES (?, ?, ?, ?, ?, ?)",
-                              (bcode, pname, pcat, bprice, sprice, pstock))
+                    c.execute("UPDATE customers SET outstanding_balance = MAX(0.0, outstanding_balance - ?) WHERE mobile=?", (r_amt, sel_mob))
                     conn.commit()
                     conn.close()
-                    st.success(f"Added {pname}!")
+                    st.success(f"₹ {r_amt:,.2f} payment recorded for {sel_mob}!")
                     st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with col_l2:
+        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+        st.markdown("##### 📜 Customer Multi-Bill History & Re-Print")
+        
+        target_cust = st.selectbox("Select Customer to View Full Ledger", options=df_cust['mobile'].tolist() if not df_cust.empty else [])
+        
+        if target_cust:
+            conn = get_db()
+            c_info = pd.read_sql(f"SELECT name, village, outstanding_balance FROM customers WHERE mobile='{target_cust}'", conn).iloc[0]
+            df_invoices = pd.read_sql(f"SELECT invoice_no, date_time, total_amount, paid_amount, udhaar_amount, billed_by FROM invoices WHERE customer_mobile='{target_cust}' ORDER BY invoice_no DESC", conn)
+            conn.close()
+            
+            st.markdown(f"**Customer:** {c_info['name']} | **Village:** {c_info['village'] or 'N/A'}")
+            st.markdown(f"<span class='badge-udhaar'>Total Due: ₹ {c_info['outstanding_balance']:,.2f}</span>", unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.dataframe(
+                df_invoices,
+                column_config={
+                    "invoice_no": "Inv #",
+                    "date_time": "Date & Time",
+                    "total_amount": st.column_config.NumberColumn("Total (₹)", format="₹ %.2f"),
+                    "paid_amount": st.column_config.NumberColumn("Paid (₹)", format="₹ %.2f"),
+                    "udhaar_amount": st.column_config.NumberColumn("Udhaar (₹)", format="₹ %.2f"),
+                    "billed_by": "Operator"
+                },
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            sel_inv_no = st.selectbox("Select Invoice to Re-Print / WhatsApp", options=df_invoices['invoice_no'].tolist() if not df_invoices.empty else [])
+            if sel_inv_no:
+                conn = get_db()
+                inv_data = pd.read_sql(f"SELECT * FROM invoices WHERE invoice_no={sel_inv_no}", conn).iloc[0]
+                inv_items = pd.read_sql(f"SELECT product_name, qty, sell_price, total FROM invoice_items WHERE invoice_no={sel_inv_no}", conn)
+                conn.close()
+                
+                items_str = "%0A".join([f"• {r['product_name']} x {r['qty']} = Rs.{r['total']:.2f}" for _, r in inv_items.iterrows()])
+                msg = f"*⚡ {BIZ_NAME} - RE-PRINT INVOICE #{inv_data['invoice_no']}*%0ANamaste *{inv_data['customer_name']}* ji,%0A{items_str}%0A*Total: Rs.{inv_data['total_amount']:.2f}*%0APaid: Rs.{inv_data['paid_amount']:.2f}%0AUdhaar: Rs.{inv_data['udhaar_amount']:.2f}"
+                wa_url = f"https://api.whatsapp.com/send?phone=91{inv_data['customer_mobile']}&text={msg}"
+                st.markdown(f"<a href='{wa_url}' target='_blank'><button style='background-color:#22c55e; color:white; width:100%; border:none; padding:8px; border-radius:6px; font-weight:bold; cursor:pointer;'>💬 Re-Send Invoice on WhatsApp</button></a>", unsafe_allow_html=True)
+                
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ==============================================================================
-# VIEW 4: PROFIT & ANALYTICS DASHBOARD (ADMIN ONLY)
+# MODULE 3: INVENTORY CONTROL & MAAL AAYA LOGS (ADMIN ONLY)
+# ==============================================================================
+elif choice == "📦 Inventory & Stock Control":
+    st.markdown("<h2 class='glass-header'>📦 Inventory Control & Stock Management</h2>", unsafe_allow_html=True)
+    
+    conn = get_db()
+    df_prods = pd.read_sql("SELECT id, barcode, name, category, buy_price, sell_price, stock FROM products ORDER BY id DESC", conn)
+    df_stock_in = pd.read_sql("SELECT date, product_name, qty_added, buy_price, total_cost FROM stock_logs ORDER BY id DESC LIMIT 50", conn)
+    conn.close()
+    
+    t1, t2 = st.tabs(["📦 Current Products Stock", "🚛 Maal Aaya Logs (Inward Stock)"])
+    
+    with t1:
+        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+        st.dataframe(
+            df_prods,
+            column_config={
+                "barcode": "Barcode",
+                "name": "Product Name",
+                "category": "Category",
+                "buy_price": st.column_config.NumberColumn("Buy Rate (₹)", format="₹ %.2f"),
+                "sell_price": st.column_config.NumberColumn("Sell Rate (₹)", format="₹ %.2f"),
+                "stock": "Stock Units"
+            },
+            use_container_width=True,
+            hide_index=True
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        with st.expander("➕ Add New Wholesale Product / Inward Stock"):
+            with st.form("add_prod_form"):
+                c1, c2 = st.columns(2)
+                bcode = c1.text_input("Barcode / Code")
+                pname = c1.text_input("Product Name")
+                pcat = c1.selectbox("Category", ["Chocolate Wholesale", "Cold Drink Wholesale", "Juice & Beverages", "Snacks"])
+                bprice = c2.number_input("Wholesale Buy Price ₹", min_value=0.0, step=5.0)
+                sprice = c2.number_input("Retailer Sell Price ₹", min_value=0.0, step=5.0)
+                pstock = c2.number_input("Stock Units (Boxes/Pieces)", min_value=0, step=10)
+                
+                if st.form_submit_button("Save to Inventory", use_container_width=True, type="primary"):
+                    if pname:
+                        conn = get_db()
+                        c = conn.cursor()
+                        c.execute("INSERT INTO products (barcode, name, category, buy_price, sell_price, stock) VALUES (?, ?, ?, ?, ?, ?)",
+                                  (bcode, pname, pcat, bprice, sprice, pstock))
+                        c.execute("INSERT INTO stock_logs (date, product_name, qty_added, buy_price, total_cost) VALUES (?, ?, ?, ?, ?)",
+                                  (datetime.now().strftime("%Y-%m-%d"), pname, pstock, bprice, pstock * bprice))
+                        conn.commit()
+                        conn.close()
+                        st.success(f"Added '{pname}' with {pstock} units!")
+                        st.rerun()
+
+    with t2:
+        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+        st.markdown("##### 🚛 Purchase & Maal Aaya Logs")
+        st.dataframe(
+            df_stock_in,
+            column_config={
+                "date": "Date",
+                "product_name": "Product Name",
+                "qty_added": "Qty Added",
+                "buy_price": st.column_config.NumberColumn("Buy Rate (₹)", format="₹ %.2f"),
+                "total_cost": st.column_config.NumberColumn("Total Cost (₹)", format="₹ %.2f")
+            },
+            use_container_width=True,
+            hide_index=True
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ==============================================================================
+# MODULE 4: NET PROFIT & ANALYTICS DASHBOARD (ADMIN ONLY)
 # ==============================================================================
 elif choice == "📊 Sales & Net Profit Dashboard":
-    st.markdown("### 📊 Business Analytics & Profitability")
+    st.markdown("<h2 class='glass-header'>📊 Financial Analytics & Net Profit Engine</h2>", unsafe_allow_html=True)
     
     f_date = st.date_input("Select Analysis Date", value=datetime.now())
     d_str = f_date.strftime("%Y-%m-%d")
@@ -521,13 +735,32 @@ elif choice == "📊 Sales & Net Profit Dashboard":
     conn.close()
     
     col1, col2, col3 = st.columns(3)
-    col1.metric("Selected Date Sales", f"₹ {sales:,.2f}")
-    col2.metric("Date Net Profit (मुनाफा)", f"₹ {profit:,.2f}")
-    col3.metric("Total Market Udhaar", f"₹ {mkt_udh:,.2f}")
+    col1.metric("Daily Sales Volume", f"₹ {sales:,.2f}")
+    col2.metric("Daily Net Profit (शुद्ध मुनाफा)", f"₹ {profit:,.2f}")
+    col3.metric("Total Market Udhaar Outstanding", f"₹ {mkt_udh:,.2f}")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
     
     conn = get_db()
     df_inv = pd.read_sql(f"SELECT invoice_no, date_time, customer_name, customer_mobile, total_amount, paid_amount, udhaar_amount, total_profit, billed_by FROM invoices WHERE date='{d_str}' ORDER BY invoice_no DESC", conn)
     conn.close()
     
-    st.markdown(f"#### Invoices on {d_str}")
-    st.dataframe(df_inv, use_container_width=True, hide_index=True)
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+    st.markdown(f"#### Invoices Generated on {d_str}")
+    st.dataframe(
+        df_inv,
+        column_config={
+            "invoice_no": "Inv #",
+            "date_time": "Time",
+            "customer_name": "Customer",
+            "customer_mobile": "Mobile",
+            "total_amount": st.column_config.NumberColumn("Bill Total (₹)", format="₹ %.2f"),
+            "paid_amount": st.column_config.NumberColumn("Paid (₹)", format="₹ %.2f"),
+            "udhaar_amount": st.column_config.NumberColumn("Udhaar (₹)", format="₹ %.2f"),
+            "total_profit": st.column_config.NumberColumn("Profit (₹)", format="₹ %.2f"),
+            "billed_by": "Billed By"
+        },
+        use_container_width=True,
+        hide_index=True
+    )
+    st.markdown("</div>", unsafe_allow_html=True)

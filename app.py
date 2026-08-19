@@ -1,6 +1,6 @@
 """
 PARTH BLUEDROP - Next-Gen Fintech Wholesale ERP & Web POS
-Bugfix: Crash-Proof Database Initialization & Thread-Safe SQLite
+Bugfix: Nullable Barcode & Duplicate Integrity Handlers
 """
 
 import streamlit as st
@@ -120,7 +120,6 @@ def init_db():
         )
         """)
         
-        # Thread-safe Admin sync without Table Locking
         c.execute("""
         INSERT INTO users (username, password_hash, role, recovery_pin_hash)
         VALUES (?, ?, ?, ?)
@@ -145,7 +144,7 @@ def init_db():
         c.execute("""
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            barcode TEXT UNIQUE,
+            barcode TEXT,
             name TEXT NOT NULL,
             category TEXT,
             buy_price REAL NOT NULL,
@@ -666,10 +665,11 @@ elif choice == "📦 Inventory & Stock Control":
                     e_exact_stock = st.number_input("Force Set Exact Stock", min_value=0, value=int(p_data['stock']), step=1)
                     
                     if st.form_submit_button("💾 Save Product Changes", use_container_width=True):
+                        clean_bcode = e_bcode.strip() if e_bcode.strip() else None
                         with get_db() as conn:
                             c = conn.cursor()
                             c.execute("UPDATE products SET name=?, barcode=?, category=?, buy_price=?, sell_price=?, stock=? WHERE id=?",
-                                      (e_name, e_bcode, e_cat, e_buy, e_sell, e_exact_stock, selected_id))
+                                      (e_name, clean_bcode, e_cat, e_buy, e_sell, e_exact_stock, selected_id))
                             conn.commit()
                         st.success(f"Product #{selected_id} updated successfully!")
                         st.rerun()
@@ -681,7 +681,7 @@ elif choice == "📦 Inventory & Stock Control":
         with st.expander("➕ Register Brand New Product"):
             with st.form("add_new_prod_form"):
                 n_c1, n_c2 = st.columns(2)
-                bcode = n_c1.text_input("Barcode / Item Code")
+                bcode = n_c1.text_input("Barcode / Item Code (Optional)")
                 pname = n_c1.text_input("Product Name")
                 pcat = n_c1.selectbox("Category", ["Chocolate Wholesale", "Cold Drink Wholesale", "Juice & Beverages", "Snacks"])
                 bprice = n_c2.number_input("Wholesale Buy Price ₹", min_value=0.0, step=5.0)
@@ -690,15 +690,19 @@ elif choice == "📦 Inventory & Stock Control":
                 
                 if st.form_submit_button("Save New Product", use_container_width=True, type="primary"):
                     if pname:
+                        clean_bcode = bcode.strip() if bcode.strip() else None
                         with get_db() as conn:
                             c = conn.cursor()
-                            c.execute("INSERT INTO products (barcode, name, category, buy_price, sell_price, stock) VALUES (?, ?, ?, ?, ?, ?)",
-                                      (bcode, pname, pcat, bprice, sprice, pstock))
-                            c.execute("INSERT INTO stock_logs (date, product_name, qty_added, buy_price, total_cost) VALUES (?, ?, ?, ?, ?)",
-                                      (datetime.now().strftime("%Y-%m-%d"), pname, pstock, bprice, pstock * bprice))
-                            conn.commit()
-                        st.success(f"Added '{pname}' with {pstock} units!")
-                        st.rerun()
+                            try:
+                                c.execute("INSERT INTO products (barcode, name, category, buy_price, sell_price, stock) VALUES (?, ?, ?, ?, ?, ?)",
+                                          (clean_bcode, pname, pcat, bprice, sprice, pstock))
+                                c.execute("INSERT INTO stock_logs (date, product_name, qty_added, buy_price, total_cost) VALUES (?, ?, ?, ?, ?)",
+                                          (datetime.now().strftime("%Y-%m-%d"), pname, pstock, bprice, pstock * bprice))
+                                conn.commit()
+                                st.success(f"Added '{pname}' with {pstock} units!")
+                                st.rerun()
+                            except sqlite3.IntegrityError:
+                                st.error("❌ Barcode पहले से किसी और प्रोडक्ट में दर्ज है!")
 
     with t2:
         st.markdown("<div class='glass-card'>", unsafe_allow_html=True)

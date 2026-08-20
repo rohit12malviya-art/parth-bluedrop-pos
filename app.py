@@ -1,6 +1,11 @@
 """
 PARTH BLUEDROP - Next-Gen Fintech Wholesale ERP & Web POS
-Supabase Session Pooler Engine (Port 5432 + Fail-Safe Cloud DB)
+Includes:
+- 1-Click Direct Text SMS & WhatsApp Alerts
+- Real-time Balance & Bill Calculation
+- Customer 360° Ledger & Udhaar Repayments
+- Inventory Re-stock & Live Profit Margins
+- Dynamic UPI QR & Thermal Receipt
 """
 
 import streamlit as st
@@ -88,6 +93,33 @@ st.markdown("""
         font-weight: 700;
         font-size: 13px;
         display: inline-block;
+    }
+    
+    .btn-sms {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: white;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-weight: bold;
+        text-align: center;
+        display: block;
+        width: 100%;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    .btn-wa {
+        background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+        color: white;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-weight: bold;
+        text-align: center;
+        display: block;
+        width: 100%;
+        text-decoration: none;
+        cursor: pointer;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -216,6 +248,8 @@ if 'cart' not in st.session_state:
     st.session_state.cart = []
 if 'last_inv' not in st.session_state:
     st.session_state.last_inv = None
+if 'last_udhaar_rec' not in st.session_state:
+    st.session_state.last_udhaar_rec = None
 
 # --- AUTH / LOGIN SCREEN ---
 if not st.session_state.authenticated:
@@ -282,7 +316,7 @@ if st.sidebar.button("🚪 Terminate Session (Logout)", use_container_width=True
 
 
 # ==============================================================================
-# MODULE 1: DIGITAL POS TERMINAL
+# MODULE 1: DIGITAL POS TERMINAL (FAST BILLING + 1-CLICK SMS & WA)
 # ==============================================================================
 if choice == "🛒 Digital POS Billing":
     st.markdown("<h2 class='glass-header' style='margin-bottom: 15px;'>🛒 Next-Gen Web POS Terminal</h2>", unsafe_allow_html=True)
@@ -475,6 +509,7 @@ if choice == "🛒 Digital POS Billing":
 
         st.markdown("</div>", unsafe_allow_html=True)
         
+        # 5. Live Bill Preview + SMS & WhatsApp Actions
         if st.session_state.last_inv:
             inv = st.session_state.last_inv
             upi_amt = inv['paid'] if inv['paid'] > 0 else (inv['subtotal'] + inv['old_udhaar'])
@@ -522,14 +557,24 @@ if choice == "🛒 Digital POS Billing":
             </div>
             """, height=560, scrolling=True)
             
+            # WhatsApp Message Text
             items_str = "%0A".join([f"• {it['name']} x {it['qty']} = Rs.{it['total']:.2f}" for it in inv['items']])
-            msg = f"*⚡ {BIZ_NAME} - INVOICE #{inv['inv_no']}*%0ANamaste *{inv['name']}* ji,%0A{items_str}%0A*Total: Rs.{inv['subtotal']:.2f}*%0APaid: Rs.{inv['paid']:.2f}%0AUdhaar: Rs.{inv['balance']:.2f}"
-            wa_url = f"https://api.whatsapp.com/send?phone=91{inv['mob']}&text={msg}"
-            st.markdown(f"<a href='{wa_url}' target='_blank'><button style='background-color:#22c55e; color:white; width:100%; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;'>💬 Open Direct WhatsApp Chat</button></a>", unsafe_allow_html=True)
+            msg_wa = f"*⚡ {BIZ_NAME} - INVOICE #{inv['inv_no']}*%0ANamaste *{inv['name']}* ji,%0A{items_str}%0A*Total Bill: Rs.{inv['subtotal']:.2f}*%0A*Purana Udhaar: Rs.{inv['old_udhaar']:.2f}*%0APaid: Rs.{inv['paid']:.2f}%0A*Remaining Udhaar: Rs.{inv['balance']:.2f}*%0A_Thank you! {BIZ_NAME}_"
+            wa_url = f"https://api.whatsapp.com/send?phone=91{inv['mob']}&text={msg_wa}"
+            
+            # Simple Text SMS
+            sms_text = f"Namaste {inv['name']} ji! {BIZ_NAME} se aapka Bill #{inv['inv_no']} Rs.{inv['subtotal']:.2f} ka bana hai. Jama: Rs.{inv['paid']:.2f}, Kul Bakaya Udhaar: Rs.{inv['balance']:.2f}. Dhanyawad!"
+            sms_url = f"sms:+91{inv['mob']}?body={urllib.parse.quote(sms_text)}"
+            
+            col_m1, col_m2 = st.columns(2)
+            with col_m1:
+                st.markdown(f"<a href='{sms_url}'><button class='btn-sms'>📲 Send Text SMS</button></a>", unsafe_allow_html=True)
+            with col_m2:
+                st.markdown(f"<a href='{wa_url}' target='_blank'><button class='btn-wa'>💬 Send WhatsApp</button></a>", unsafe_allow_html=True)
 
 
 # ==============================================================================
-# MODULE 2: CUSTOMER 360° & MULTI-BILL LEDGER
+# MODULE 2: CUSTOMER 360° & MULTI-BILL LEDGER (WITH SMS & WA RECEIPT)
 # ==============================================================================
 elif choice == "👥 Customer 360° & Udhaar Ledger":
     st.markdown("<h2 class='glass-header'>👥 Customer 360° & Udhaar Ledger</h2>", unsafe_allow_html=True)
@@ -568,10 +613,37 @@ elif choice == "👥 Customer 360° & Udhaar Ledger":
                 if sel_mob != "No Customers":
                     engine = get_engine()
                     with engine.begin() as conn:
-                        conn.execute(text("UPDATE customers SET outstanding_balance = GREATEST(0.0, outstanding_balance - :amt) WHERE mobile=:m"),
-                                     {"amt": r_amt, "m": sel_mob})
+                        c_row = conn.execute(text("SELECT name, outstanding_balance FROM customers WHERE mobile=:m"), {"m": sel_mob}).fetchone()
+                        old_bal = c_row[1]
+                        new_bal = max(0.0, old_bal - r_amt)
+                        conn.execute(text("UPDATE customers SET outstanding_balance = :bal WHERE mobile=:m"),
+                                     {"bal": new_bal, "m": sel_mob})
+                    
+                    st.session_state.last_udhaar_rec = {
+                        'name': c_row[0],
+                        'mob': sel_mob,
+                        'paid': r_amt,
+                        'new_bal': new_bal
+                    }
                     st.success(f"₹ {r_amt:,.2f} payment recorded for {sel_mob}!")
                     st.rerun()
+
+        if st.session_state.last_udhaar_rec:
+            u_rec = st.session_state.last_udhaar_rec
+            st.markdown(f"**Receipt for {u_rec['name']}:** Paid ₹{u_rec['paid']:.2f} | Remaining Due: ₹{u_rec['new_bal']:.2f}")
+            
+            sms_pay_text = f"Namaste {u_rec['name']} ji! {BIZ_NAME} me aapki Udhaar Jama Rashi Rs.{u_rec['paid']:.2f} prapt hui. Ab Kul Bakaya Udhaar Rs.{u_rec['new_bal']:.2f} hai. Dhanyawad!"
+            sms_pay_url = f"sms:+91{u_rec['mob']}?body={urllib.parse.quote(sms_pay_text)}"
+            
+            wa_pay_msg = f"*⚡ {BIZ_NAME} - PAYMENT RECEIPT*%0ANamaste *{u_rec['name']}* ji,%0AAapki Udhaar Jama Rashi: *Rs.{u_rec['paid']:.2f}* safaltapurvak prapt hui.%0A*Ab Kul Bakaya Udhaar: Rs.{u_rec['new_bal']:.2f}*%0A_Dhanyawad! {BIZ_NAME}_"
+            wa_pay_url = f"https://api.whatsapp.com/send?phone=91{u_rec['mob']}&text={wa_pay_msg}"
+            
+            c_sm1, c_sm2 = st.columns(2)
+            with c_sm1:
+                st.markdown(f"<a href='{sms_pay_url}'><button class='btn-sms'>📲 Send Payment SMS</button></a>", unsafe_allow_html=True)
+            with c_sm2:
+                st.markdown(f"<a href='{wa_pay_url}' target='_blank'><button class='btn-wa'>💬 Send WhatsApp</button></a>", unsafe_allow_html=True)
+                
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col_l2:
@@ -603,7 +675,7 @@ elif choice == "👥 Customer 360° & Udhaar Ledger":
                 hide_index=True
             )
             
-            sel_inv_no = st.selectbox("Select Invoice to Re-Print / WhatsApp", options=df_invoices['invoice_no'].tolist() if not df_invoices.empty else [])
+            sel_inv_no = st.selectbox("Select Invoice to Re-Print / WhatsApp / SMS", options=df_invoices['invoice_no'].tolist() if not df_invoices.empty else [])
             if sel_inv_no:
                 engine = get_engine()
                 inv_data = pd.read_sql(f"SELECT * FROM invoices WHERE invoice_no={sel_inv_no}", engine).iloc[0]
@@ -612,7 +684,15 @@ elif choice == "👥 Customer 360° & Udhaar Ledger":
                 items_str = "%0A".join([f"• {r['product_name']} x {r['qty']} = Rs.{r['total']:.2f}" for _, r in inv_items.iterrows()])
                 msg = f"*⚡ {BIZ_NAME} - RE-PRINT INVOICE #{inv_data['invoice_no']}*%0ANamaste *{inv_data['customer_name']}* ji,%0A{items_str}%0A*Total: Rs.{inv_data['total_amount']:.2f}*%0APaid: Rs.{inv_data['paid_amount']:.2f}%0AUdhaar: Rs.{inv_data['udhaar_amount']:.2f}"
                 wa_url = f"https://api.whatsapp.com/send?phone=91{inv_data['customer_mobile']}&text={msg}"
-                st.markdown(f"<a href='{wa_url}' target='_blank'><button style='background-color:#22c55e; color:white; width:100%; border:none; padding:8px; border-radius:6px; font-weight:bold; cursor:pointer;'>💬 Re-Send Invoice on WhatsApp</button></a>", unsafe_allow_html=True)
+                
+                sms_re_text = f"Namaste {inv_data['customer_name']} ji! {BIZ_NAME} Bill #{inv_data['invoice_no']}: Total Rs.{inv_data['total_amount']:.2f}, Paid Rs.{inv_data['paid_amount']:.2f}, Udhaar Rs.{inv_data['udhaar_amount']:.2f}."
+                sms_re_url = f"sms:+91{inv_data['customer_mobile']}?body={urllib.parse.quote(sms_re_text)}"
+                
+                col_r1, col_r2 = st.columns(2)
+                with col_r1:
+                    st.markdown(f"<a href='{sms_re_url}'><button class='btn-sms'>📲 Re-Send SMS</button></a>", unsafe_allow_html=True)
+                with col_r2:
+                    st.markdown(f"<a href='{wa_url}' target='_blank'><button class='btn-wa'>💬 Re-Send WhatsApp</button></a>", unsafe_allow_html=True)
                 
         st.markdown("</div>", unsafe_allow_html=True)
 

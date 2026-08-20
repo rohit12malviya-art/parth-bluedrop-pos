@@ -1,6 +1,6 @@
 """
 PARTH BLUEDROP - Next-Gen Fintech Wholesale ERP & Web POS
-Bugfix: Fixed PostgreSQL RETURNING invoice_no Execution
+Bugfix: Fixed PostgreSQL Missing Columns & Safe Schema Auto-Migration
 """
 
 import streamlit as st
@@ -206,6 +206,11 @@ def init_db():
             billed_by TEXT DEFAULT 'admin'
         );
         """))
+        
+        # Safe Schema Patch for existing tables
+        conn.execute(text("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS billed_by TEXT DEFAULT 'admin';"))
+        conn.execute(text("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS customer_village TEXT;"))
+        conn.execute(text("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS discount DOUBLE PRECISION DEFAULT 0.0;"))
         
         conn.execute(text("""
         CREATE TABLE IF NOT EXISTS invoice_items (
@@ -455,14 +460,14 @@ if choice == "🛒 Digital POS Billing":
                 d_str, dt_str = now.strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d %I:%M %p")
                 engine = get_engine()
                 with engine.begin() as conn:
-                    # Safe Invoice Insert & ID Fetch
+                    # Clean insertion without payload conflicts
                     res = conn.execute(text("""
-                    INSERT INTO invoices (date_time, date, customer_mobile, customer_name, customer_village, subtotal, total_amount, paid_amount, udhaar_amount, total_profit, payment_mode, billed_by)
-                    VALUES (:dt, :d, :mob, :name, :vil, :sub, :tot, :paid, :udh, :prof, :pmode, :bby)
+                    INSERT INTO invoices (date_time, date, customer_mobile, customer_name, customer_village, subtotal, discount, total_amount, paid_amount, udhaar_amount, total_profit, payment_mode, billed_by)
+                    VALUES (:dt, :d, :mob, :name, :vil, :sub, 0.0, :tot, :paid, :udh, :prof, :pmode, :bby)
                     RETURNING invoice_no;
                     """), {
                         "dt": dt_str, "d": d_str, "mob": mob, "name": c_name or "Customer", "vil": c_village,
-                        "sub": subtotal, "tot": subtotal, "paid": paid, "udh": remaining_balance, "prof": total_profit,
+                        "sub": float(subtotal), "tot": float(subtotal), "paid": float(paid), "udh": float(remaining_balance), "prof": float(total_profit),
                         "pmode": "UPI/Cash", "bby": st.session_state.username
                     })
                     inv_no = res.scalar()
@@ -472,10 +477,10 @@ if choice == "🛒 Digital POS Billing":
                         INSERT INTO invoice_items (invoice_no, product_id, product_name, qty, buy_price, sell_price, total, profit)
                         VALUES (:inv, :pid, :pname, :qty, :buy, :sell, :tot, :prof);
                         """), {
-                            "inv": inv_no, "pid": it['id'], "pname": it['name'], "qty": it['qty'],
-                            "buy": it['buy'], "sell": it['sell'], "tot": it['total'], "prof": it['profit']
+                            "inv": int(inv_no), "pid": int(it['id']), "pname": it['name'], "qty": int(it['qty']),
+                            "buy": float(it['buy']), "sell": float(it['sell']), "tot": float(it['total']), "prof": float(it['profit'])
                         })
-                        conn.execute(text("UPDATE products SET stock = stock - :qty WHERE id=:pid"), {"qty": it['qty'], "pid": it['id']})
+                        conn.execute(text("UPDATE products SET stock = stock - :qty WHERE id=:pid"), {"qty": int(it['qty']), "pid": int(it['id'])})
                         
                     conn.execute(text("""
                     INSERT INTO customers (mobile, name, village, outstanding_balance, last_purchase_date, last_purchase_amount)
@@ -486,7 +491,7 @@ if choice == "🛒 Digital POS Billing":
                         outstanding_balance=EXCLUDED.outstanding_balance,
                         last_purchase_date=EXCLUDED.last_purchase_date,
                         last_purchase_amount=EXCLUDED.last_purchase_amount;
-                    """), {"m": mob, "n": c_name or "Customer", "v": c_village, "bal": remaining_balance, "lpd": d_str, "lpa": subtotal})
+                    """), {"m": mob, "n": c_name or "Customer", "v": c_village, "bal": float(remaining_balance), "lpd": d_str, "lpa": float(subtotal)})
                 
                 st.session_state.last_inv = {
                     'inv_no': inv_no,

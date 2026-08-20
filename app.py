@@ -121,7 +121,7 @@ st.markdown("""
 
 # --- Configuration & PostgreSQL Database ---
 DB_URL = "postgresql+psycopg2://postgres.bawmdovylsaagnfufjiy:Rohit%4062992@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require"
-DEFAULT_UPI_ID = "9752162992@ibl"
+DEFAULT_UPI_ID = "Q000510296@ybl"
 BIZ_NAME = "PARTH BLUEDROP"
 BIZ_TAGLINE = "Wholesale Distributor - Chocolates & Cold Drinks"
 BIZ_PHONE = "9752162992"

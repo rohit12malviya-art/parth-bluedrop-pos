@@ -1,11 +1,6 @@
 """
 PARTH BLUEDROP - Next-Gen Fintech Wholesale ERP & Web POS
-Includes:
-- 1-Click Direct Text SMS & WhatsApp Alerts
-- Real-time Balance & Bill Calculation
-- Customer 360° Ledger & Udhaar Repayments
-- Inventory Re-stock & Live Profit Margins
-- Dynamic UPI QR & Thermal Receipt
+Bugfix: Fixed PostgreSQL RETURNING invoice_no Execution
 """
 
 import streamlit as st
@@ -460,6 +455,7 @@ if choice == "🛒 Digital POS Billing":
                 d_str, dt_str = now.strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d %I:%M %p")
                 engine = get_engine()
                 with engine.begin() as conn:
+                    # Safe Invoice Insert & ID Fetch
                     res = conn.execute(text("""
                     INSERT INTO invoices (date_time, date, customer_mobile, customer_name, customer_village, subtotal, total_amount, paid_amount, udhaar_amount, total_profit, payment_mode, billed_by)
                     VALUES (:dt, :d, :mob, :name, :vil, :sub, :tot, :paid, :udh, :prof, :pmode, :bby)
@@ -469,7 +465,7 @@ if choice == "🛒 Digital POS Billing":
                         "sub": subtotal, "tot": subtotal, "paid": paid, "udh": remaining_balance, "prof": total_profit,
                         "pmode": "UPI/Cash", "bby": st.session_state.username
                     })
-                    inv_no = res.fetchone()[0]
+                    inv_no = res.scalar()
                     
                     for it in st.session_state.cart:
                         conn.execute(text("""

@@ -160,7 +160,7 @@ def init_db():
             password_hash=EXCLUDED.password_hash,
             role=EXCLUDED.role,
             recovery_pin_hash=EXCLUDED.recovery_pin_hash;
-        """), {"u": "admin", "p": hash_txt("admin123"), "r": "Admin", "pin": hash_txt("1234")})
+        """), {"u": "parthkirana", "p": hash_txt("Parth@1122"), "r": "Admin", "pin": hash_txt("1122")})
         
         conn.execute(text("""
         CREATE TABLE IF NOT EXISTS customers (

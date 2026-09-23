@@ -1,10 +1,10 @@
 """
 PARTH BLUEDROP - Next-Gen Fintech Wholesale ERP & Web POS
 Features:
-- Animated Lamp Glow Login Screen (Custom Interactive UI)
+- Real-time Lamp Pull-String Light Toggle Animation (ON/OFF Logic)
+- Login Form Shows only when Lamp Light is ON
 - Credentials: parthkirana / Parth@1122 (PIN: 1122)
 - Direct Manual Item Entry (Without Pre-Inventory Save)
-- Realtime WhatsApp & SMS Receipt Triggers
 """
 
 import streamlit as st
@@ -145,135 +145,288 @@ if 'last_inv' not in st.session_state:
     st.session_state.last_inv = None
 
 # ==============================================================================
-# ANIMATED LAMP LOGIN SCREEN (INSPIRED BY GSAP LAMP UI)
+# ANIMATED PULL-STRING LAMP LOGIN SCREEN
 # ==============================================================================
 if not st.session_state.authenticated:
-    st.markdown("""
+    # Interactive HTML + JS Pull String Lamp Component
+    lamp_ui_html = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+    <meta charset="UTF-8">
     <style>
-        .stApp {
-            background-color: #121417 !important;
-            background-image: radial-gradient(circle at 35% 45%, #2a2820 0%, #121417 70%);
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #121417;
+            height: 520px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: background 0.5s ease;
         }
-        header {visibility: hidden;}
-        section[data-testid="stSidebar"] {display: none;}
+        body.light-on {
+            background-color: #1c1f24;
+            background-image: radial-gradient(circle at 35% 45%, #383426 0%, #1c1f24 70%);
+        }
+        .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            width: 850px;
+            position: relative;
+        }
         
-        /* Lamp Container Styling */
-        .lamp-box {
+        /* Lamp Container */
+        .lamp-wrapper {
+            position: relative;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding-top: 40px;
+            width: 280px;
+            height: 380px;
         }
-        .lamp-head {
+        .lamp-shade {
             width: 170px;
             height: 85px;
-            background: #ffffff;
+            background: #475569;
             border-top-left-radius: 90px;
             border-top-right-radius: 90px;
-            box-shadow: 0 0 50px rgba(255, 240, 180, 0.75), 0 0 100px rgba(255, 230, 150, 0.45);
+            transition: all 0.4s ease;
             position: relative;
+            z-index: 2;
         }
-        .lamp-stick {
+        .light-on .lamp-shade {
+            background: #ffffff;
+            box-shadow: 0 0 50px rgba(255, 240, 180, 0.8), 0 0 100px rgba(255, 230, 150, 0.4);
+        }
+        .lamp-pole {
             width: 14px;
-            height: 180px;
-            background: #e2e8f0;
+            height: 220px;
+            background: #64748b;
             border-radius: 6px;
+            transition: background 0.4s;
         }
-        .lamp-string {
-            width: 3px;
-            height: 90px;
+        .light-on .lamp-pole {
             background: #cbd5e1;
-            position: relative;
-            left: 28px;
-            top: -180px;
-        }
-        .lamp-bead {
-            width: 16px;
-            height: 16px;
-            background: #f59e0b;
-            border-radius: 50%;
-            position: absolute;
-            bottom: 0;
-            left: -6.5px;
-            box-shadow: 0 0 10px #f59e0b;
         }
         .lamp-base {
-            width: 130px;
-            height: 16px;
-            background: #e2e8f0;
+            width: 140px;
+            height: 18px;
+            background: #64748b;
             border-radius: 12px;
             margin-top: -6px;
         }
+        .light-on .lamp-base {
+            background: #cbd5e1;
+        }
         
-        /* Form Card */
+        /* Pull String / Dori */
+        .pull-string {
+            position: absolute;
+            left: 175px;
+            top: 75px;
+            width: 3px;
+            height: 110px;
+            background: #cbd5e1;
+            cursor: pointer;
+            z-index: 10;
+            transform-origin: top;
+            transition: transform 0.15s ease-out;
+        }
+        .pull-string:active {
+            transform: scaleY(1.2);
+        }
+        .pull-bead {
+            position: absolute;
+            bottom: -14px;
+            left: -6.5px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #f59e0b;
+            box-shadow: 0 0 8px #f59e0b;
+        }
+        .hint-text {
+            position: absolute;
+            bottom: 30px;
+            left: 20px;
+            font-size: 13px;
+            color: #94a3b8;
+            background: rgba(0,0,0,0.4);
+            padding: 4px 10px;
+            border-radius: 12px;
+            border: 1px dashed #64748b;
+        }
+
+        /* Login Card */
         .login-card {
-            background: rgba(30, 32, 38, 0.75);
+            width: 340px;
+            background: rgba(30, 32, 38, 0.85);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 24px;
-            padding: 24px 30px;
-            box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+            border-radius: 20px;
+            padding: 30px;
             backdrop-filter: blur(16px);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            opacity: 0;
+            transform: translateY(30px) scale(0.95);
+            pointer-events: none;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .light-on .login-card {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+        .login-card h2 {
+            margin: 0 0 6px 0;
+            color: #ffffff;
+            font-size: 24px;
+            text-align: center;
+        }
+        .login-card p {
+            color: #94a3b8;
+            font-size: 12px;
+            margin: 0 0 20px 0;
+            text-align: center;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        .input-group label {
+            display: block;
+            color: #cbd5e1;
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: #ffffff;
+            font-size: 13px;
+            outline: none;
+        }
+        .input-group input:focus {
+            border-color: #38bdf8;
+        }
+        .btn-gold {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+            transition: all 0.2s;
+        }
+        .btn-gold:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
         }
     </style>
-    """, unsafe_allow_html=True)
-
-    c_left, c_right = st.columns([1.1, 1], gap="medium")
-
-    with c_left:
-        # Visual Lamp Construction
-        st.markdown("""
-        <div class="lamp-box">
-            <div class="lamp-head"></div>
-            <div class="lamp-stick"></div>
-            <div class="lamp-base"></div>
-            <div class="lamp-string"><div class="lamp-bead"></div></div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with c_right:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        st.markdown("""
-        <div class="login-card">
-            <h2 style='text-align: center; color: #f8fafc; font-weight: 700; margin-bottom: 4px;'>Welcome</h2>
-            <p style='text-align: center; color: #94a3b8; font-size: 13px; margin-bottom: 20px;'>PARTH BLUEDROP POS Terminal</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        with st.form("lamp_login_form"):
-            u = st.text_input("Username", value="parthkirana", placeholder="Enter name")
-            p = st.text_input("Password", type="password", value="Parth@1122", placeholder="Enter Password")
-            
-            btn_login = st.form_submit_button("Sign In", use_container_width=True)
-
-            if btn_login:
-                user_clean = u.strip()
-                pass_clean = p.strip()
+    </head>
+    <body class="light-on" id="appBody">
+        <div class="container">
+            <!-- Lamp with String -->
+            <div class="lamp-wrapper">
+                <div class="lamp-shade"></div>
+                <div class="lamp-pole"></div>
+                <div class="lamp-base"></div>
                 
-                if (user_clean.lower() == "parthkirana" and pass_clean == "Parth@1122") or (user_clean.lower() == "admin" and pass_clean == "admin123"):
+                <div class="pull-string" id="lampString" onclick="toggleLight()" title="Dori khinch kar Light ON/OFF karein">
+                    <div class="pull-bead"></div>
+                </div>
+                <div class="hint-text">💡 Dori khinch kar Light ON/OFF karein</div>
+            </div>
+
+            <!-- Login Interface -->
+            <div class="login-card" id="loginBox">
+                <h2>Welcome</h2>
+                <p>PARTH BLUEDROP POS Terminal</p>
+                
+                <form id="customLoginForm" onsubmit="handleLogin(event)">
+                    <div class="input-group">
+                        <label>Username</label>
+                        <input type="text" id="userInput" value="parthkirana" placeholder="Enter Username" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Password</label>
+                        <input type="password" id="passInput" value="Parth@1122" placeholder="Enter Password" required>
+                    </div>
+                    <button type="submit" class="btn-gold">Sign In</button>
+                </form>
+                <div id="errMsg" style="color: #f87171; font-size: 12px; text-align: center; margin-top: 10px; display: none;">Galat Username ya Password!</div>
+            </div>
+        </div>
+
+        <script>
+            let isLightOn = true;
+            function toggleLight() {
+                isLightOn = !isLightOn;
+                const body = document.getElementById('appBody');
+                if (isLightOn) {
+                    body.classList.add('light-on');
+                } else {
+                    body.classList.remove('light-on');
+                }
+            }
+
+            function handleLogin(e) {
+                e.preventDefault();
+                const u = document.getElementById('userInput').value.trim();
+                const p = document.getElementById('passInput').value.trim();
+                
+                if ((u.toLowerCase() === 'parthkirana' && p === 'Parth@1122') || (u.toLowerCase() === 'admin' && p === 'admin123')) {
+                    // Send parameter to Streamlit parent
+                    window.parent.postMessage({type: 'streamlit:setComponentValue', value: {username: u, auth: true}}, '*');
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('auth', '1');
+                    url.searchParams.set('user', u);
+                    window.parent.location.search = url.searchParams.toString();
+                } else {
+                    document.getElementById('errMsg').style.display = 'block';
+                }
+            }
+        </script>
+    </body>
+    </html>
+    """
+    
+    # URL query param check for seamless direct login
+    params = st.query_params
+    if params.get("auth") == "1":
+        st.session_state.authenticated = True
+        st.session_state.username = params.get("user", "parthkirana")
+        st.session_state.role = "Admin"
+        st.rerun()
+
+    # Render Component
+    components.html(lamp_ui_html, height=540)
+    
+    with st.expander("🔑 Direct Fallback Sign In (Agar Lamp Touch na ho)"):
+        with st.form("backup_form"):
+            b_u = st.text_input("Username", value="parthkirana")
+            b_p = st.text_input("Password", type="password", value="Parth@1122")
+            if st.form_submit_button("Enter Terminal"):
+                if (b_u.lower() == "parthkirana" and b_p == "Parth@1122") or (b_u.lower() == "admin" and b_p == "admin123"):
                     st.session_state.authenticated = True
-                    st.session_state.username = user_clean
+                    st.session_state.username = b_u
                     st.session_state.role = "Admin"
                     st.rerun()
                 else:
-                    try:
-                        engine, _ = get_engine()
-                        with engine.connect() as conn:
-                            res = conn.execute(text("SELECT username, role FROM users WHERE LOWER(username)=:u AND password_hash=:p"),
-                                               {"u": user_clean.lower(), "p": hash_txt(pass_clean)}).fetchone()
-                        if res:
-                            st.session_state.authenticated = True
-                            st.session_state.username = res[0]
-                            st.session_state.role = res[1]
-                            st.rerun()
-                        else:
-                            st.error("Invalid Username or Password!")
-                    except Exception:
-                        st.error("Authentication Error!")
+                    st.error("Galat ID ya Password!")
     st.stop()
 
 # ==============================================================================
-# MAIN APPLICATION STYLING & SIDEBAR
+# MAIN SYSTEM: POS TERMINAL, LEDGER, INVENTORY
 # ==============================================================================
 st.markdown("""
 <style>
@@ -332,11 +485,10 @@ if st.sidebar.button("🚪 Terminate Session (Logout)", use_container_width=True
     st.session_state.authenticated = False
     st.session_state.cart = []
     st.session_state.last_inv = None
+    st.query_params.clear()
     st.rerun()
 
-# ==============================================================================
-# MODULE 1: POS BILLING (WITH DIRECT MANUAL ITEM ENTRY)
-# ==============================================================================
+# --- MODULE 1: POS BILLING (WITH DIRECT MANUAL ITEM ENTRY) ---
 if choice == "🛒 Digital POS Billing":
     st.markdown("<h2 class='glass-header'>🛒 Next-Gen Web POS Terminal</h2>", unsafe_allow_html=True)
     col_pos_left, col_pos_right = st.columns([1.55, 1.45], gap="large")
@@ -557,9 +709,7 @@ if choice == "🛒 Digital POS Billing":
             with col_m2:
                 st.markdown(f"<a href='{wa_url}' target='_blank'><button class='btn-wa'>💬 Send WhatsApp</button></a>", unsafe_allow_html=True)
 
-# ==============================================================================
-# MODULE 2: CUSTOMER 360° & UDHAAR LEDGER
-# ==============================================================================
+# --- MODULE 2: CUSTOMERS & UDHAAR LEDGER ---
 elif choice == "👥 Customer 360° & Udhaar Ledger":
     st.markdown("<h2 class='glass-header'>👥 Customer 360° & Udhaar Ledger</h2>", unsafe_allow_html=True)
     try:
@@ -588,9 +738,7 @@ elif choice == "👥 Customer 360° & Udhaar Ledger":
                 st.info("No records found.")
         st.markdown("</div>", unsafe_allow_html=True)
 
-# ==============================================================================
-# MODULE 3: INVENTORY CONTROL
-# ==============================================================================
+# --- MODULE 3: INVENTORY CONTROL ---
 elif choice == "📦 Inventory & Stock Control":
     st.markdown("<h2 class='glass-header'>📦 Wholesale Inventory & Price Control</h2>", unsafe_allow_html=True)
     try:
@@ -600,9 +748,7 @@ elif choice == "📦 Inventory & Stock Control":
         df_prods = pd.DataFrame(columns=['id', 'barcode', 'name', 'category', 'buy_price', 'sell_price', 'stock'])
     st.dataframe(df_prods, use_container_width=True, hide_index=True)
 
-# ==============================================================================
-# MODULE 4: NET PROFIT DASHBOARD
-# ==============================================================================
+# --- MODULE 4: ANALYTICS & PROFIT ---
 elif choice == "📊 Sales & Net Profit Dashboard":
     st.markdown("<h2 class='glass-header'>📊 Financial Analytics & Net Profit</h2>", unsafe_allow_html=True)
     f_date = st.date_input("Select Analysis Date", value=datetime.now())

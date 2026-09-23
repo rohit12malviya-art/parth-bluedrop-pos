@@ -1,9 +1,10 @@
 """
 PARTH BLUEDROP - Next-Gen Fintech Wholesale ERP & Web POS
-Updated Credentials & UPI ID:
-- UPI: 9752162992@ybl
-- User: parthkirana / Parth@1122 (PIN: 1122)
-- Feature: Direct Manual Item Entry (Without Inventory Pre-Save)
+Features:
+- Animated Lamp Glow Login Screen (Custom Interactive UI)
+- Credentials: parthkirana / Parth@1122 (PIN: 1122)
+- Direct Manual Item Entry (Without Pre-Inventory Save)
+- Realtime WhatsApp & SMS Receipt Triggers
 """
 
 import streamlit as st
@@ -24,89 +25,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Custom Styling ---
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-    * { font-family: 'Plus Jakarta Sans', sans-serif; }
-    .stApp {
-        background: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #020617 100%);
-        color: #f1f5f9;
-    }
-    section[data-testid="stSidebar"] {
-        background-color: #0b1120 !important;
-        border-right: 1px solid #1e293b;
-    }
-    div[data-testid="stMetric"] {
-        background: rgba(30, 41, 59, 0.6);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(56, 189, 248, 0.15);
-        border-radius: 14px;
-        padding: 16px 20px;
-        box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.3);
-    }
-    .glass-card {
-        background: rgba(15, 23, 42, 0.75);
-        backdrop-filter: blur(16px);
-        border: 1px solid rgba(148, 163, 184, 0.12);
-        border-radius: 16px;
-        padding: 20px;
-        margin-bottom: 18px;
-        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.4);
-    }
-    .glass-header {
-        background: linear-gradient(90deg, #0284c7 0%, #2563eb 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800;
-    }
-    .badge-profit {
-        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-        color: #ffffff;
-        padding: 6px 14px;
-        border-radius: 30px;
-        font-weight: 700;
-        font-size: 13px;
-        display: inline-block;
-    }
-    .badge-udhaar {
-        background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
-        color: #ffffff;
-        padding: 6px 14px;
-        border-radius: 30px;
-        font-weight: 700;
-        font-size: 13px;
-        display: inline-block;
-    }
-    .btn-sms {
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-        color: white;
-        border: none;
-        padding: 10px 16px;
-        border-radius: 8px;
-        font-weight: bold;
-        text-align: center;
-        display: block;
-        width: 100%;
-        text-decoration: none;
-        cursor: pointer;
-    }
-    .btn-wa {
-        background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
-        color: white;
-        border: none;
-        padding: 10px 16px;
-        border-radius: 8px;
-        font-weight: bold;
-        text-align: center;
-        display: block;
-        width: 100%;
-        text-decoration: none;
-        cursor: pointer;
-    }
-</style>
-""", unsafe_allow_html=True)
-
+# --- Configuration & Database ---
 CLOUD_DB_URL = "postgresql+psycopg2://postgres.bawmdovylsaagnfufjiy:Rohit%4062992@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require"
 DEFAULT_UPI_ID = "9752162992@ybl"
 BIZ_NAME = "PARTH BLUEDROP"
@@ -215,6 +134,7 @@ try:
 except Exception:
     pass
 
+# --- Session State ---
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
     st.session_state.username = ""
@@ -223,28 +143,113 @@ if 'cart' not in st.session_state:
     st.session_state.cart = []
 if 'last_inv' not in st.session_state:
     st.session_state.last_inv = None
-if 'last_udhaar_rec' not in st.session_state:
-    st.session_state.last_udhaar_rec = None
 
-# --- AUTH LOGIN ---
+# ==============================================================================
+# ANIMATED LAMP LOGIN SCREEN (INSPIRED BY GSAP LAMP UI)
+# ==============================================================================
 if not st.session_state.authenticated:
-    c1, c2, c3 = st.columns([1, 1.5, 1])
-    with c2:
-        st.markdown(f"""
-        <div style='text-align: center; background: rgba(15, 23, 42, 0.85); padding: 30px; border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.2);'>
-            <h1 class='glass-header' style='font-size: 30px; margin: 0;'>⚡ {BIZ_NAME}</h1>
-            <p style='color: #94a3b8; font-size: 13px; margin-top: 4px;'>Wholesale POS & ERP</p>
+    st.markdown("""
+    <style>
+        .stApp {
+            background-color: #121417 !important;
+            background-image: radial-gradient(circle at 35% 45%, #2a2820 0%, #121417 70%);
+        }
+        header {visibility: hidden;}
+        section[data-testid="stSidebar"] {display: none;}
+        
+        /* Lamp Container Styling */
+        .lamp-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding-top: 40px;
+        }
+        .lamp-head {
+            width: 170px;
+            height: 85px;
+            background: #ffffff;
+            border-top-left-radius: 90px;
+            border-top-right-radius: 90px;
+            box-shadow: 0 0 50px rgba(255, 240, 180, 0.75), 0 0 100px rgba(255, 230, 150, 0.45);
+            position: relative;
+        }
+        .lamp-stick {
+            width: 14px;
+            height: 180px;
+            background: #e2e8f0;
+            border-radius: 6px;
+        }
+        .lamp-string {
+            width: 3px;
+            height: 90px;
+            background: #cbd5e1;
+            position: relative;
+            left: 28px;
+            top: -180px;
+        }
+        .lamp-bead {
+            width: 16px;
+            height: 16px;
+            background: #f59e0b;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 0;
+            left: -6.5px;
+            box-shadow: 0 0 10px #f59e0b;
+        }
+        .lamp-base {
+            width: 130px;
+            height: 16px;
+            background: #e2e8f0;
+            border-radius: 12px;
+            margin-top: -6px;
+        }
+        
+        /* Form Card */
+        .login-card {
+            background: rgba(30, 32, 38, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 24px 30px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+            backdrop-filter: blur(16px);
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    c_left, c_right = st.columns([1.1, 1], gap="medium")
+
+    with c_left:
+        # Visual Lamp Construction
+        st.markdown("""
+        <div class="lamp-box">
+            <div class="lamp-head"></div>
+            <div class="lamp-stick"></div>
+            <div class="lamp-base"></div>
+            <div class="lamp-string"><div class="lamp-bead"></div></div>
         </div>
         """, unsafe_allow_html=True)
-        with st.form("login_form"):
-            st.markdown("#### 🔐 Security Authentication")
-            u = st.text_input("Username / Operator ID", value="parthkirana")
-            p = st.text_input("Password", type="password", value="Parth@1122")
-            if st.form_submit_button("🚀 ENTER PLATFORM TERMINAL", use_container_width=True):
+
+    with c_right:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class="login-card">
+            <h2 style='text-align: center; color: #f8fafc; font-weight: 700; margin-bottom: 4px;'>Welcome</h2>
+            <p style='text-align: center; color: #94a3b8; font-size: 13px; margin-bottom: 20px;'>PARTH BLUEDROP POS Terminal</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.form("lamp_login_form"):
+            u = st.text_input("Username", value="parthkirana", placeholder="Enter name")
+            p = st.text_input("Password", type="password", value="Parth@1122", placeholder="Enter Password")
+            
+            btn_login = st.form_submit_button("Sign In", use_container_width=True)
+
+            if btn_login:
                 user_clean = u.strip()
                 pass_clean = p.strip()
                 
-                # Direct Master Check with updated credentials
                 if (user_clean.lower() == "parthkirana" and pass_clean == "Parth@1122") or (user_clean.lower() == "admin" and pass_clean == "admin123"):
                     st.session_state.authenticated = True
                     st.session_state.username = user_clean
@@ -254,21 +259,59 @@ if not st.session_state.authenticated:
                     try:
                         engine, _ = get_engine()
                         with engine.connect() as conn:
-                            result = conn.execute(text("SELECT username, role FROM users WHERE LOWER(username)=:u AND password_hash=:p"),
-                                                  {"u": user_clean.lower(), "p": hash_txt(pass_clean)}).fetchone()
-                        if result:
+                            res = conn.execute(text("SELECT username, role FROM users WHERE LOWER(username)=:u AND password_hash=:p"),
+                                               {"u": user_clean.lower(), "p": hash_txt(pass_clean)}).fetchone()
+                        if res:
                             st.session_state.authenticated = True
-                            st.session_state.username = result[0]
-                            st.session_state.role = result[1]
+                            st.session_state.username = res[0]
+                            st.session_state.role = res[1]
                             st.rerun()
                         else:
                             st.error("Invalid Username or Password!")
                     except Exception:
-                        st.error("Invalid Credentials!")
-        st.info("💡 Login ID: **parthkirana** | Password: **Parth@1122**")
+                        st.error("Authentication Error!")
     st.stop()
 
-# --- SIDEBAR ---
+# ==============================================================================
+# MAIN APPLICATION STYLING & SIDEBAR
+# ==============================================================================
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .stApp {
+        background: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #020617 100%);
+        color: #f1f5f9;
+    }
+    section[data-testid="stSidebar"] {
+        background-color: #0b1120 !important;
+        border-right: 1px solid #1e293b;
+    }
+    .glass-card {
+        background: rgba(15, 23, 42, 0.75);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(148, 163, 184, 0.12);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 18px;
+    }
+    .glass-header {
+        background: linear-gradient(90deg, #0284c7 0%, #2563eb 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+    }
+    .btn-sms {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer;
+    }
+    .btn-wa {
+        background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+        color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 engine, current_db_status = get_engine()
 st.sidebar.markdown(f"""
 <div style='background: rgba(30, 41, 59, 0.5); padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.2); margin-bottom: 20px;'>
@@ -291,7 +334,9 @@ if st.sidebar.button("🚪 Terminate Session (Logout)", use_container_width=True
     st.session_state.last_inv = None
     st.rerun()
 
-# --- MODULE 1: POS BILLING (WITH DIRECT MANUAL ITEM ENTRY) ---
+# ==============================================================================
+# MODULE 1: POS BILLING (WITH DIRECT MANUAL ITEM ENTRY)
+# ==============================================================================
 if choice == "🛒 Digital POS Billing":
     st.markdown("<h2 class='glass-header'>🛒 Next-Gen Web POS Terminal</h2>", unsafe_allow_html=True)
     col_pos_left, col_pos_right = st.columns([1.55, 1.45], gap="large")
@@ -313,7 +358,7 @@ if choice == "🛒 Digital POS Billing":
                     c_col2.text_input("Customer Name", value=c_name, disabled=True)
                     c_col3.text_input("Village / Area", value=c_village, disabled=True)
                     if old_udhaar > 0:
-                        st.markdown(f"<span class='badge-udhaar'>🚨 Past Udhaar: ₹ {old_udhaar:,.2f}</span>", unsafe_allow_html=True)
+                        st.markdown(f"<span style='background:#dc2626; color:white; padding:4px 10px; border-radius:15px; font-size:12px;'>🚨 Past Udhaar: ₹ {old_udhaar:,.2f}</span>", unsafe_allow_html=True)
                 else:
                     c_name = c_col2.text_input("Customer Name", value="", placeholder="Enter Name")
                     c_village = c_col3.text_input("Village / Area", value="", placeholder="Enter Village")
@@ -358,7 +403,6 @@ if choice == "🛒 Digital POS Billing":
                     })
                     st.rerun()
         else:
-            # DIRECT MANUAL ENTRY
             m_c1, m_c2, m_c3, m_c4 = st.columns([2.2, 1, 1, 1])
             custom_pname = m_c1.text_input("Item Name (e.g. 250 ml Water Pack)")
             custom_rate = m_c2.number_input("Rate ₹ (per peti/pc)", min_value=1.0, value=140.0, step=10.0)
@@ -467,7 +511,7 @@ if choice == "🛒 Digital POS Billing":
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         
-        # Live Bill Slip + SMS / WhatsApp Triggers
+        # Live Bill Slip
         if st.session_state.last_inv:
             inv = st.session_state.last_inv
             items_html = "".join([f"<tr><td style='padding:4px;'>{it['name']}</td><td style='text-align:center;'>{it['qty']}</td><td style='text-align:right;'>₹{it['sell']:.2f}</td><td style='text-align:right;'>₹{it['total']:.2f}</td></tr>" for it in inv['items']])
@@ -513,7 +557,9 @@ if choice == "🛒 Digital POS Billing":
             with col_m2:
                 st.markdown(f"<a href='{wa_url}' target='_blank'><button class='btn-wa'>💬 Send WhatsApp</button></a>", unsafe_allow_html=True)
 
-# --- MODULE 2: CUSTOMERS & UDHAAR LEDGER ---
+# ==============================================================================
+# MODULE 2: CUSTOMER 360° & UDHAAR LEDGER
+# ==============================================================================
 elif choice == "👥 Customer 360° & Udhaar Ledger":
     st.markdown("<h2 class='glass-header'>👥 Customer 360° & Udhaar Ledger</h2>", unsafe_allow_html=True)
     try:
@@ -529,24 +575,6 @@ elif choice == "👥 Customer 360° & Udhaar Ledger":
         st.dataframe(df_cust, use_container_width=True, hide_index=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
-        st.markdown("##### 💵 Quick Udhaar Collection Entry")
-        with st.form("rec_pay_form"):
-            r_c1, r_c2 = st.columns(2)
-            sel_mob = r_c1.selectbox("Select Customer Mobile", df_cust['mobile'].tolist() if not df_cust.empty else ["No Customers"])
-            r_amt = r_c2.number_input("Received Amount (₹)", min_value=1.0, step=50.0)
-            if st.form_submit_button("Record Udhaar Deposit", use_container_width=True, type="primary"):
-                if sel_mob != "No Customers":
-                    engine, _ = get_engine()
-                    with engine.begin() as conn:
-                        c_row = conn.execute(text("SELECT name, outstanding_balance FROM customers WHERE mobile=:m"), {"m": sel_mob}).fetchone()
-                        old_bal = c_row[1] if c_row else 0.0
-                        new_bal = max(0.0, old_bal - r_amt)
-                        conn.execute(text("UPDATE customers SET outstanding_balance = :bal WHERE mobile=:m"), {"bal": new_bal, "m": sel_mob})
-                    st.success(f"₹ {r_amt:,.2f} payment recorded for {sel_mob}!")
-                    st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-
     with col_l2:
         st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
         st.markdown("##### 📜 Customer Multi-Bill History")
@@ -560,7 +588,9 @@ elif choice == "👥 Customer 360° & Udhaar Ledger":
                 st.info("No records found.")
         st.markdown("</div>", unsafe_allow_html=True)
 
-# --- MODULE 3: INVENTORY CONTROL ---
+# ==============================================================================
+# MODULE 3: INVENTORY CONTROL
+# ==============================================================================
 elif choice == "📦 Inventory & Stock Control":
     st.markdown("<h2 class='glass-header'>📦 Wholesale Inventory & Price Control</h2>", unsafe_allow_html=True)
     try:
@@ -570,7 +600,9 @@ elif choice == "📦 Inventory & Stock Control":
         df_prods = pd.DataFrame(columns=['id', 'barcode', 'name', 'category', 'buy_price', 'sell_price', 'stock'])
     st.dataframe(df_prods, use_container_width=True, hide_index=True)
 
-# --- MODULE 4: ANALYTICS & PROFIT ---
+# ==============================================================================
+# MODULE 4: NET PROFIT DASHBOARD
+# ==============================================================================
 elif choice == "📊 Sales & Net Profit Dashboard":
     st.markdown("<h2 class='glass-header'>📊 Financial Analytics & Net Profit</h2>", unsafe_allow_html=True)
     f_date = st.date_input("Select Analysis Date", value=datetime.now())
